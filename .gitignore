@@ -1,0 +1,35 @@
+# TLC fork
+tlaplus/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.hypothesis/
+
+# LaTeX
+*.aux
+*.log
+*.nav
+*.snm
+*.toc
+*.vrb
+
+# TLC outputs
+*-states.json
+*-edges.json
+*.dot
+*.pdf
+*.cfg
+*_TTrace_*.*
+*.out
+/states
+raft/states
+muddy-children/MuddyChildren.json
+*.old
+raft/SimpleRaft.json
+tests/BadSpec.json
+tests/KripkeTest.json
+coordinated-attack/CoordinatedAttack.json
+login/LoginFixed.json
+login/LoginLeaky.json
