@@ -1,0 +1,35 @@
+digraph {
+  rankdir=LR;
+  "init"
+  "write received"
+  "replicated once"
+  "acked once"
+  "committed on node 1"
+  "replicated twice"
+  "acked twice"
+  "committed on node 2"
+  "init" -> "write received"
+  "write received" -> "replicated once"
+  "replicated once" -> "acked once"
+  "acked once" -> "committed on node 1"
+  "committed on node 1" -> "replicated twice"
+  "replicated twice" -> "acked twice"
+  "acked twice" -> "committed on node 2"
+  "init" -> "write received" [dir=none,color=red,label="1,2"]
+  "init" -> "replicated once" [dir=none,color=red,label="2"]
+  "init" -> "acked once" [dir=none,color=red,label="2"]
+  "init" -> "committed on node 1" [dir=none,color=red,label="2"]
+  "write received" -> "replicated once" [dir=none,color=red,label="0,2"]
+  "write received" -> "acked once" [dir=none,color=red,label="2"]
+  "write received" -> "committed on node 1" [dir=none,color=red,label="2"]
+  "replicated once" -> "acked once" [dir=none,color=red,label="1,2"]
+  "replicated once" -> "committed on node 1" [dir=none,color=red,label="2"]
+  "acked once" -> "committed on node 1" [dir=none,color=red,label="0,2"]
+  "acked once" -> "replicated twice" [dir=none,color=red,label="0"]
+  "committed on node 1" -> "replicated twice" [dir=none,color=red,label="0,1"]
+  "committed on node 1" -> "acked twice" [dir=none,color=red,label="1"]
+  "committed on node 1" -> "committed on node 2" [dir=none,color=red,label="1"]
+  "replicated twice" -> "acked twice" [dir=none,color=red,label="1,2"]
+  "replicated twice" -> "committed on node 2" [dir=none,color=red,label="1"]
+  "acked twice" -> "committed on node 2" [dir=none,color=red,label="0,1"]
+}
