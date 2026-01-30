@@ -1,0 +1,18 @@
+strict digraph DiskGraph {
+nodesep=0.35;
+subgraph cluster_graph {
+color="white";
+-309170359973062138 [label="/\\ history = <<>>\n/\\ k = 1\n/\\ q = 0",style = filled]
+8916206512232326756 [label="/\\ history = <<>>\n/\\ k = 2\n/\\ q = 0",style = filled]
+-309170359973062138 -> -8105756894737859460 [label="",color="black",fontcolor="black"];
+-8105756894737859460 [label="/\\ history = << << [m |-> TRUE, q |-> 0, muddyChildrenSeen |-> 0],\n      [m |-> TRUE, q |-> 0, muddyChildrenSeen |-> 1] >> >>\n/\\ k = 1\n/\\ q = 1"];
+8916206512232326756 -> -2138657435481265612 [label="",color="black",fontcolor="black"];
+-2138657435481265612 [label="/\\ history = << << [m |-> TRUE, q |-> 0, muddyChildrenSeen |-> 1],\n      [m |-> TRUE, q |-> 0, muddyChildrenSeen |-> 1] >> >>\n/\\ k = 2\n/\\ q = 1"];
+-8105756894737859460 -> -3641726363595880703 [label="",color="black",fontcolor="black"];
+-3641726363595880703 [label="/\\ history = << << [m |-> TRUE, q |-> 0, muddyChildrenSeen |-> 0],\n      [m |-> TRUE, q |-> 0, muddyChildrenSeen |-> 1] >>,\n   << [m |-> TRUE, q |-> 1, muddyChildrenSeen |-> 0],\n      [m |-> TRUE, q |-> 1, muddyChildrenSeen |-> 1] >> >>\n/\\ k = 1\n/\\ q = 2"];
+-2138657435481265612 -> 8260052929369447170 [label="",color="black",fontcolor="black"];
+8260052929369447170 [label="/\\ history = << << [m |-> TRUE, q |-> 0, muddyChildrenSeen |-> 1],\n      [m |-> TRUE, q |-> 0, muddyChildrenSeen |-> 1] >>,\n   << [m |-> TRUE, q |-> 1, muddyChildrenSeen |-> 1],\n      [m |-> TRUE, q |-> 1, muddyChildrenSeen |-> 1] >> >>\n/\\ k = 2\n/\\ q = 2"];
+{rank = same; -309170359973062138;8916206512232326756;}
+{rank = same; -2138657435481265612;-8105756894737859460;}
+}
+}

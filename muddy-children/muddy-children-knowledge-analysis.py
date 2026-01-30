@@ -13,13 +13,16 @@ On my Mac:
   ant -f customBuild.xml info compile dist
 """
 import json
+import os
 import subprocess
 
 import networkx as nx
 
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def run_tlc():
     """Run TLC on the given specification file."""
+    # Note, you can't run both -dump json MuddyChildren and -dump dot MuddyChildren.
     subprocess.check_call([
         "java", "-jar",
         "/Users/emptysquare/co/multi-inv-checking-et-al/tlatools/org.lamport.tlatools/"
@@ -27,15 +30,14 @@ def run_tlc():
         "-deadlock",
         "MuddyChildren.tla",
         "-dump", "json", "MuddyChildren",
-        "-dump", "dot", "MuddyChildren",
     ], env={
         "JAVA_HOME": "/opt/homebrew/Cellar/openjdk@11/11.0.28/bin/",
         "PATH": "/opt/homebrew/Cellar/openjdk@11/11.0.28/bin/:$PATH"
-    })
+    }, cwd=THIS_DIR)
 
     subprocess.check_call([
         "dot", "-Tpdf", "MuddyChildren.dot", "-o", "MuddyChildren.pdf"
-    ])
+    ], cwd=THIS_DIR)
 
 
 # Adapted from https://github.com/mongodb-labs/vldb25-dist-txns
@@ -50,13 +52,13 @@ def parse_json_state_graph():
     states_fpath = "MuddyChildren-states.json"
     edges_fpath = "MuddyChildren-edges.json"
 
-    fgraph = open(edges_fpath)
+    fgraph = open(os.path.join(THIS_DIR, edges_fpath))
     json_graph = json.load(fgraph)
     for edge in json_graph["edges"]:
         G.add_edge(edge["from"], edge["to"])
         edge_actions[(edge["from"], edge["to"])] = edge
 
-    fgraph = open(states_fpath)
+    fgraph = open(os.path.join(THIS_DIR, states_fpath))
     json_graph = json.load(fgraph)
     node_map = {}
     for node in json_graph["states"]:
