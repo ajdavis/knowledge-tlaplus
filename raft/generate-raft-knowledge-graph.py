@@ -1,3 +1,7 @@
+"""
+This is exploratory, it doesn't use TLA+ or PlusCal.
+"""
+
 import copy
 import subprocess
 from dataclasses import field, dataclass
