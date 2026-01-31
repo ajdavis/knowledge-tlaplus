@@ -1,68 +1,90 @@
-(* The "Muddy Children" puzzle from the 1990 paper "Knowledge and common knowledge in a *)
-(* distributed environment" *)
----- MODULE MuddyChildren ----
+--------------------------- MODULE MuddyChildren ---------------------------
+(***************************************************************************)
+(* Muddy children puzzle from Halpern & Moses, "Knowledge and Common       *)
+(* Knowledge in a Distributed Environment", Section 2.                     *)
+(*                                                                         *)
+(* n children play together, k get mud on their foreheads. Each can see    *)
+(* others but not themselves. Father announces "at least one of you has    *)
+(* mud" then repeatedly asks "can you prove you have mud?" Children answer *)
+(* simultaneously. After k-1 rounds of "no", muddy children answer "yes".  *)
+(***************************************************************************)
 
-EXTENDS Naturals, Integers, Sequences
+EXTENDS Naturals, FiniteSets, TLC, Sequences
 
-CONSTANT n \* Total number of children
-ASSUME n \in Nat
-CONSTANT m \* Whether father said "at least one of you has mud on your head" at the start.
-ASSUME m \in BOOLEAN
-VARIABLE k \* Number of muddy children.
-VARIABLE q \* Number of times father asked, "Can any of you prove you have mud on your head?".
-\* VARIABLE kRanges
-VARIABLE history \* Sequence of observations by the children.
+CONSTANT N
 
-vars == <<k, q, history>>
+ASSUME N \in Nat
 
-TypeOK == m \in BOOLEAN /\ k \in Int /\ q \in Int
+Children == 1..N
 
-IsMuddy(i) == i <= k \* Say arbitrarily that the first k children are muddy
-MuddyChildrenSeenBy(i) == IF IsMuddy(i) THEN k - 1 ELSE k
-CanProveMuddy(i) == q > MuddyChildrenSeenBy(i) /\ m \* The correct test, from the paper
-ThinksMuddy(i) == q > MuddyChildrenSeenBy(i) \* Test what happens without "m" condition
+(* --algorithm MuddyChildren
+variables
+    \* muddy[i] = TRUE iff child i has mud on forehead
+    \* When m=TRUE, at least one child must be muddy (father's announcement is true)
+    muddy \in {f \in [Children -> BOOLEAN] : \E i \in Children : f[i]},
+    \* m = father has announced "at least one is muddy"
+    m = TRUE,
+    \* q = number of completed rounds of questioning
+    q = 0,
+    \* saidYes[i] = TRUE iff child i has said "yes" (visible to all)
+    saidYes = [i \in Children |-> FALSE];
 
-\* A record of what child i saw in this state.
-MakeHistoryEntry(i) == [q |-> q, muddyChildrenSeen |-> MuddyChildrenSeenBy(i), m |-> m]
+define
+    SeesMuddy(i) == {j \in Children : j /= i /\ muddy[j]}
+end define;
+
+process AskLoop = 0
+begin
+    Ask:
+        while q < N-1 do
+            \* Father asks, all children respond based on new q value
+            q := q + 1 ||
+            saidYes := [i \in Children |-> saidYes[i] \/ (m /\ q + 1 = Cardinality(SeesMuddy(i)) + 1)];
+        end while;
+end process;
+
+end algorithm; *)
+
+\* BEGIN TRANSLATION
+VARIABLES pc, muddy, m, q, saidYes
+
+(* define statement *)
+SeesMuddy(i) == {j \in Children : j /= i /\ muddy[j]}
 
 
-\* assume i is muddy
-\* n=0, lo=MuddyChildrenSeenBy(i), hi=MuddyChildrenSeenBy(i)+1
-\* n=1, lo=MuddyChildrenSeenBy(i)-1 since it doesn't see itself and i might be clean
-\*      hi=MuddyChildrenSeenBy(i)+1 since i might be muddy
-\* RECURSIVE IndirectKnowledgeOfK(_, _)
-\* IndirectKnowledgeOfK(n, i) ==
-\*   IF n = 0 THEN
-\*     LET iKnow == [
-\*       lo -> MuddyChildrenSeenBy(i),     \* I directly see this many muddy children
-\*       hi -> MuddyChildrenSeenBy(i) + 1  \* I might also be muddy
-\*     ], nextKnows == IndirectKnowledgeOfK(n + 1, i)
-\*     IN [lo |-> iKnow.lo, hi |-> iKnow.hi]
-\*   ELSE
-\*     IN [lo |-> MuddyChildrenSeenBy(i), hi |-> prev.hi]
+vars == << pc, muddy, m, q, saidYes >>
 
+ProcSet == {0}
 
+Init == (* Global variables *)
+        /\ muddy \in {f \in [Children -> BOOLEAN] : \E i \in Children : f[i]}
+        /\ m = TRUE
+        /\ q = 0
+        /\ saidYes = [i \in Children |-> FALSE]
+        /\ pc = [self \in ProcSet |-> "Ask"]
 
-Init == 
-  \* Some number of muddy children.
-  /\ k \in 0..n
-  \* If there are any muddy children, the father *might* say so.
-  /\ m \in (IF k > 0 THEN BOOLEAN ELSE {FALSE})
-  \* Initially the father has asked the question zero times.
-  /\ q = 0
-  \* /\ kRanges = [i \in 1..n |-> 
-  /\ history = <<>>
+Ask == /\ pc[0] = "Ask"
+       /\ IF q < N-1
+             THEN /\ /\ q' = q + 1
+                     /\ saidYes' = [i \in Children |-> saidYes[i] \/ (m /\ q + 1 = Cardinality(SeesMuddy(i)) + 1)]
+                  /\ pc' = [pc EXCEPT ![0] = "Ask"]
+             ELSE /\ pc' = [pc EXCEPT ![0] = "Done"]
+                  /\ UNCHANGED << q, saidYes >>
+       /\ UNCHANGED << muddy, m >>
 
-Next == 
-  \* The next action is father asking the question again.
-  /\ q' = q + 1 
-  \* Each child records its history in this state.
-  /\ history' = Append(history, [i \in 1..n |-> MakeHistoryEntry(i)])
-  \* Gotta stop somewhere. Disable deadlock checking or this causes an error.
-  /\ q < n
-  /\ UNCHANGED k
+AskLoop == Ask
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == AskLoop
+           \/ Terminating
 
 Spec == Init /\ [][Next]_vars
 
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-=============================
+\* END TRANSLATION
+
+=============================================================================
