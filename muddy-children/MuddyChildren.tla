@@ -19,58 +19,64 @@ Children == 1..N
 
 (* --algorithm MuddyChildren
 variables
-    \* muddy[i] = TRUE iff child i has mud on forehead
-    \* When m=TRUE, at least one child must be muddy (father's announcement is true)
+    \* Variables listed here are indexed by agent ID for knowledge analysis
+    AGENT_STATES = <<"seesMuddy", "saidYes", "m", "q">>,
+    \* muddy[i] = TRUE iff child i has mud (never changes, not directly visible to i)
     muddy \in {f \in [Children -> BOOLEAN] : \E i \in Children : f[i]},
-    \* m = father has announced "at least one is muddy"
-    m = TRUE,
-    \* q = number of completed rounds of questioning
-    q = 0,
-    \* saidYes[i] = TRUE iff child i has said "yes" (visible to all)
-    saidYes = [i \in Children |-> FALSE];
+    \* seesMuddy[i] = set of muddy children visible to i (initialized, never changes)
+    seesMuddy = [i \in Children |-> {j \in Children : j /= i /\ muddy[j]}],
+    \* saidYes[i] = set of children who said yes (same for all i, public)
+    saidYes = [i \in Children |-> {}],
+    \* m[i] = father's announcement (same for all i, public)
+    m = [i \in Children |-> TRUE],
+    \* q[i] = number of completed rounds (same for all i, public)
+    q = [i \in Children |-> 0];
 
 define
-    SeesMuddy(i) == {j \in Children : j /= i /\ muddy[j]}
+    \* Who says yes this round: child i says yes if they see exactly q other muddy children
+    SaysYes(i) == m[i] /\ q[i] + 1 = Cardinality(seesMuddy[i]) + 1
 end define;
 
 process AskLoop = 0
 begin
     Ask:
-        while q < N-1 do
-            \* Father asks, all children respond based on new q value
-            q := q + 1 ||
-            saidYes := [i \in Children |-> saidYes[i] \/ (m /\ q + 1 = Cardinality(SeesMuddy(i)) + 1)];
+        while q[1] < N-1 do
+            \* Father asks, update q and saidYes for all children
+            q := [i \in Children |-> q[i] + 1] ||
+            saidYes := [i \in Children |-> saidYes[i] \union {j \in Children : SaysYes(j)}];
         end while;
 end process;
 
 end algorithm; *)
 
 \* BEGIN TRANSLATION
-VARIABLES pc, muddy, m, q, saidYes
+VARIABLES AGENT_STATES, muddy, seesMuddy, saidYes, m, q, pc
 
 (* define statement *)
-SeesMuddy(i) == {j \in Children : j /= i /\ muddy[j]}
+SaysYes(i) == m[i] /\ q[i] + 1 = Cardinality(seesMuddy[i]) + 1
 
 
-vars == << pc, muddy, m, q, saidYes >>
+vars == << AGENT_STATES, muddy, seesMuddy, saidYes, m, q, pc >>
 
 ProcSet == {0}
 
 Init == (* Global variables *)
+        /\ AGENT_STATES = <<"seesMuddy", "saidYes", "m", "q">>
         /\ muddy \in {f \in [Children -> BOOLEAN] : \E i \in Children : f[i]}
-        /\ m = TRUE
-        /\ q = 0
-        /\ saidYes = [i \in Children |-> FALSE]
+        /\ seesMuddy = [i \in Children |-> {j \in Children : j /= i /\ muddy[j]}]
+        /\ saidYes = [i \in Children |-> {}]
+        /\ m = [i \in Children |-> TRUE]
+        /\ q = [i \in Children |-> 0]
         /\ pc = [self \in ProcSet |-> "Ask"]
 
 Ask == /\ pc[0] = "Ask"
-       /\ IF q < N-1
-             THEN /\ /\ q' = q + 1
-                     /\ saidYes' = [i \in Children |-> saidYes[i] \/ (m /\ q + 1 = Cardinality(SeesMuddy(i)) + 1)]
+       /\ IF q[1] < N-1
+             THEN /\ /\ q' = [i \in Children |-> q[i] + 1]
+                     /\ saidYes' = [i \in Children |-> saidYes[i] \union {j \in Children : SaysYes(j)}]
                   /\ pc' = [pc EXCEPT ![0] = "Ask"]
              ELSE /\ pc' = [pc EXCEPT ![0] = "Done"]
-                  /\ UNCHANGED << q, saidYes >>
-       /\ UNCHANGED << muddy, m >>
+                  /\ UNCHANGED << saidYes, q >>
+       /\ UNCHANGED << AGENT_STATES, muddy, seesMuddy, m >>
 
 AskLoop == Ask
 
