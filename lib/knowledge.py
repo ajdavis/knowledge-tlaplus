@@ -45,12 +45,12 @@ def get_local_state(state: dict, agent: str) -> tuple:
     return tuple(result)
 
 
-def build_indistinguishability_graph(node_map: dict) -> tuple[nx.MultiGraph, list]:
+def build_indistinguishability_graph(node_map: dict) -> tuple[nx.Graph, list]:
     """Build an indistinguishability graph from TLC states.
 
-    Two states are connected by an edge labeled with agent if that agent has the
-    same local state in both. This is the standard Kripke structure for epistemic
-    logic.
+    Two states are connected by an edge labeled with agents if those agents have
+    the same local state in both. This is the standard Kripke structure for
+    epistemic logic.
 
     Requires states to have an AGENT_STATES variable listing variable names,
     where each listed variable is indexed by agent ID.
@@ -59,13 +59,13 @@ def build_indistinguishability_graph(node_map: dict) -> tuple[nx.MultiGraph, lis
         node_map: Maps state fingerprints to state values (from tlc.parse_state_graph)
 
     Returns:
-        (G, agents) where G is an undirected multigraph with state fingerprints as
-        nodes and edges labeled with the agent who cannot distinguish those states.
+        (G, agents) where G is an undirected graph with state fingerprints as
+        nodes and edges labeled with the agents who cannot distinguish those states.
     """
     agents = get_agents(node_map)
 
-    G = nx.MultiGraph()
-    G.add_nodes_from(node_map.keys())
+    # Collect all agents that can't distinguish each pair of states
+    edge_agents = defaultdict(list)
 
     for agent in agents:
         groups = defaultdict(list)
@@ -77,7 +77,13 @@ def build_indistinguishability_graph(node_map: dict) -> tuple[nx.MultiGraph, lis
         for fps in groups.values():
             for i, fp1 in enumerate(fps):
                 for fp2 in fps[i + 1:]:
-                    G.add_edge(fp1, fp2, agent=agent)
+                    edge_key = (min(fp1, fp2), max(fp1, fp2))
+                    edge_agents[edge_key].append(agent)
+
+    G = nx.Graph()
+    G.add_nodes_from(node_map.keys())
+    for (fp1, fp2), agents_list in edge_agents.items():
+        G.add_edge(fp1, fp2, agents=agents_list)
 
     return G, agents
 

@@ -43,8 +43,8 @@ if __name__ == "__main__":
     # Add labels to nodes and edges for DOT export
     for fp in indist_G.nodes():
         indist_G.nodes[fp]["label"] = state_label(filtered_states[fp])
-    for u, v, key, data in indist_G.edges(keys=True, data=True):
-        indist_G.edges[u, v, key]["label"] = str(data["agent"])
+    for u, v, data in indist_G.edges(data=True):
+        indist_G.edges[u, v]["label"] = ",".join(data["agents"])
 
     indist_G.graph["graph"] = {"overlap": "false"}
 
