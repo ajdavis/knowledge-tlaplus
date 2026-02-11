@@ -31,18 +31,50 @@ if __name__ == "__main__":
     print(f"Agents: {agents}")
     print(f"Indistinguishability graph: {len(indist_G.nodes())} nodes, {len(indist_G.edges())} edges")
 
-    # Add labels to nodes and edges for DOT export
+    AGENT_COLORS = {"0": "red", "1": "blue", "2": "darkgreen"}
+
+    # Add labels and colors to nodes and edges for DOT export
     for fp in indist_G.nodes():
         indist_G.nodes[fp]["label"] = state_label(node_map[fp])
     for u, v, data in indist_G.edges(data=True):
-        indist_G.edges[u, v]["label"] = ",".join(data["agents"])
+        agent_list = data["agents"]
+        if len(agent_list) == 1:
+            indist_G.edges[u, v]["color"] = AGENT_COLORS[agent_list[0]]
+        else:
+            indist_G.edges[u, v]["color"] = ":".join(
+                AGENT_COLORS[a] for a in agent_list
+            )
 
-    indist_G.graph["graph"] = {"overlap": "false"}
+    indist_G.graph["graph"] = {"overlap": "false", "splines": "curved"}
 
     dot_path = THIS_DIR / "SimpleRaft-indistinguishability.dot"
     write_dot(indist_G, dot_path)
+
+    # Append a legend subgraph
+    dot_text = dot_path.read_text()
+    legend = """
+subgraph cluster_legend {
+  label="Agents";
+  style=filled;
+  fillcolor=white;
+  node [shape=plaintext];
+  edge [penwidth=2];
+  l0a [label=""];
+  l0b [label="0"];
+  l0a -- l0b [color=red];
+  l1a [label=""];
+  l1b [label="1"];
+  l1a -- l1b [color=blue];
+  l2a [label=""];
+  l2b [label="2"];
+  l2a -- l2b [color=darkgreen];
+}
+"""
+    dot_text = dot_text.rstrip().rstrip("}")
+    dot_text += legend + "\n}\n"
+    dot_path.write_text(dot_text)
     print(f"Wrote {dot_path}")
 
     pdf_path = THIS_DIR / "SimpleRaft-indistinguishability.pdf"
-    subprocess.check_call(["neato", "-Tpdf", dot_path, "-o", pdf_path])
+    subprocess.check_call(["sfdp", "-Tpdf", dot_path, "-o", pdf_path])
     print(f"Wrote {pdf_path}")
