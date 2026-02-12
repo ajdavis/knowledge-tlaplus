@@ -35,6 +35,7 @@ if __name__ == "__main__":
     # Filter out "Done" states
     filtered_states = {fp: val for fp, val in node_map.items() if val["pc"]["0"] != "Done"}
     print(f"States (excluding Done): {len(filtered_states)}")
+    knowledge.validate_state_transitions(G, filtered_states)
 
     indist_G, agents = knowledge.build_indistinguishability_graph(filtered_states)
     print(f"Agents: {agents}")

@@ -45,6 +45,33 @@ def get_local_state(state: dict, agent: str) -> tuple:
     return tuple(result)
 
 
+def validate_state_transitions(G: nx.DiGraph, node_map: dict):
+    """Assert every transition changes at least one AGENT_STATES variable.
+
+    PlusCal generates a 'pc' variable for control flow. If a labeled step only
+    changes pc without changing any agent-visible variable, the
+    indistinguishability graph will have multiple nodes with the same label.
+    Merge such steps with adjacent ones so each atomic step is observable.
+    """
+    agent_vars = get_agent_state_vars(node_map)
+    for u, v in G.edges():
+        if u == v or u not in node_map or v not in node_map:
+            continue
+        su, sv = node_map[u], node_map[v]
+        changed = [var for var in agent_vars if su[var] != sv[var]]
+        if not changed:
+            pc_u = su.get("pc", {})
+            pc_v = sv.get("pc", {})
+            raise AssertionError(
+                f"Transition changes no AGENT_STATES variable ({agent_vars}).\n"
+                f"  pc before: {pc_u}\n"
+                f"  pc after:  {pc_v}\n"
+                f"  Merge the source PlusCal label into the next step so every "
+                f"atomic step changes at least one agent-visible variable.\n"
+                f"  See docs/writing-specs.md for details."
+            )
+
+
 def build_indistinguishability_graph(node_map: dict) -> tuple[nx.Graph, list]:
     """Build an indistinguishability graph from TLC states.
 
@@ -59,8 +86,8 @@ def build_indistinguishability_graph(node_map: dict) -> tuple[nx.Graph, list]:
         node_map: Maps state fingerprints to state values (from tlc.parse_state_graph)
 
     Returns:
-        (G, agents) where G is an undirected graph with state fingerprints as
-        nodes and edges labeled with the agents who cannot distinguish those states.
+        (G, agents) where G is an undirected graph with states as nodes and edges labeled with the
+        agents who cannot distinguish those states.
     """
     agents = get_agents(node_map)
 

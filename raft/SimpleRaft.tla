@@ -29,30 +29,24 @@ variables
     \*   a[f] = <<>> (followers don't know about acks)
     a = [n \in Nodes |-> IF n = Leader THEN <<FALSE, FALSE>> ELSE <<>>];
 
-\* Leader sends the log entry to a follower that doesn't have it yet
+\* Leader sends the log entry to each follower, order is nondeterministic
 process LeaderProc = Leader
 begin
-    LeaderLoop:
-        while TRUE do
-            either
-                \* Send entry to a follower that doesn't have it
-                with f \in {f \in Followers : ~r[f]} do
-                    r[f] := TRUE;
-                end with;
-            or
-                \* Skip (allow interleaving)
-                skip;
-            end either;
-        end while;
+    SendFirst:
+        with f \in Followers do
+            r[f] := TRUE;
+        end with;
+    SendSecond:
+        with f \in {f \in Followers : ~r[f]} do
+            r[f] := TRUE;
+        end with;
 end process;
 
-\* Each follower can acknowledge once it has received the entry
+\* Each follower acknowledges once it has received the entry
 process FollowerProc \in Followers
 begin
-    WaitForEntry:
-        await r[self];
     Acknowledge:
-        \* Update a[0] to reflect this ack
+        await r[self];
         a[Leader] := IF self = 1
                      THEN <<TRUE, a[Leader][2]>>
                      ELSE <<a[Leader][1], TRUE>>;
@@ -71,37 +65,44 @@ Init == (* Global variables *)
         /\ AGENT_STATES = <<"a", "r">>
         /\ r = [n \in Nodes |-> n = Leader]
         /\ a = [n \in Nodes |-> IF n = Leader THEN <<FALSE, FALSE>> ELSE <<>>]
-        /\ pc = [self \in ProcSet |-> CASE self = Leader -> "LeaderLoop"
-                                        [] self \in Followers -> "WaitForEntry"]
+        /\ pc = [self \in ProcSet |-> CASE self = Leader -> "SendFirst"
+                                        [] self \in Followers -> "Acknowledge"]
 
-LeaderLoop == /\ pc[Leader] = "LeaderLoop"
-              /\ \/ /\ \E f \in {f \in Followers : ~r[f]}:
-                         r' = [r EXCEPT ![f] = TRUE]
-                 \/ /\ TRUE
-                    /\ r' = r
-              /\ pc' = [pc EXCEPT ![Leader] = "LeaderLoop"]
+SendFirst == /\ pc[Leader] = "SendFirst"
+             /\ \E f \in Followers:
+                  r' = [r EXCEPT ![f] = TRUE]
+             /\ pc' = [pc EXCEPT ![Leader] = "SendSecond"]
+             /\ UNCHANGED << AGENT_STATES, a >>
+
+SendSecond == /\ pc[Leader] = "SendSecond"
+              /\ \E f \in {f \in Followers : ~r[f]}:
+                   r' = [r EXCEPT ![f] = TRUE]
+              /\ pc' = [pc EXCEPT ![Leader] = "Done"]
               /\ UNCHANGED << AGENT_STATES, a >>
 
-LeaderProc == LeaderLoop
-
-WaitForEntry(self) == /\ pc[self] = "WaitForEntry"
-                      /\ r[self]
-                      /\ pc' = [pc EXCEPT ![self] = "Acknowledge"]
-                      /\ UNCHANGED << AGENT_STATES, r, a >>
+LeaderProc == SendFirst \/ SendSecond
 
 Acknowledge(self) == /\ pc[self] = "Acknowledge"
+                     /\ r[self]
                      /\ a' = [a EXCEPT ![Leader] = IF self = 1
                                                    THEN <<TRUE, a[Leader][2]>>
                                                    ELSE <<a[Leader][1], TRUE>>]
                      /\ pc' = [pc EXCEPT ![self] = "Done"]
                      /\ UNCHANGED << AGENT_STATES, r >>
 
-FollowerProc(self) == WaitForEntry(self) \/ Acknowledge(self)
+FollowerProc(self) == Acknowledge(self)
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
 
 Next == LeaderProc
            \/ (\E self \in Followers: FollowerProc(self))
+           \/ Terminating
 
 Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 

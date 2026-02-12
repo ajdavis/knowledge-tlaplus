@@ -26,6 +26,7 @@ if __name__ == "__main__":
     tlc.run(THIS_DIR / "SimpleRaft.tla")
     G, node_map, edge_actions = tlc.parse_state_graph(THIS_DIR / "SimpleRaft")
     print(f"TLC state graph: {len(G.nodes())} nodes, {len(G.edges())} edges")
+    knowledge.validate_state_transitions(G, node_map)
 
     indist_G, agents = knowledge.build_indistinguishability_graph(node_map)
     print(f"Agents: {agents}")

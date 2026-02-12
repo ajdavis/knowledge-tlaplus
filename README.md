@@ -15,6 +15,14 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
+## Tests
+
+```bash
+.venv/bin/pytest tests/
+```
+
+A pre-commit hook runs tests automatically. It's in `.git/hooks/pre-commit`.
+
 ## Architecture
 
 1. **TLA+/PlusCal spec** → TLC → state graph (JSON)
