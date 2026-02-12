@@ -37,7 +37,8 @@ if __name__ == "__main__":
     print(f"States (excluding Done): {len(filtered_states)}")
     knowledge.validate_state_transitions(G, filtered_states)
 
-    indist_G, agents = knowledge.build_indistinguishability_graph(filtered_states)
+    eq_classes = knowledge.build_equivalence_classes(filtered_states)
+    indist_G, agents = knowledge.build_indistinguishability_graph(filtered_states, eq_classes)
     print(f"Agents: {agents}")
     print(f"Indistinguishability graph: {len(indist_G.nodes())} nodes, {len(indist_G.edges())} edges")
 

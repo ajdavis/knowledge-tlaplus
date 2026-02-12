@@ -12,15 +12,6 @@ from lib import tlc, knowledge
 THIS_DIR = Path(__file__).parent
 
 
-def agent_neighbors(G, node, agent):
-    """States indistinguishable from node for agent (including node itself)."""
-    result = {node}
-    for _, nbr, data in G.edges(node, data=True):
-        if agent in data["agents"]:
-            result.add(nbr)
-    return result
-
-
 def state_label(state: dict) -> str:
     """Create a human-readable label for a state."""
     r, a = state["r"], state["a"]
@@ -37,22 +28,18 @@ if __name__ == "__main__":
     print(f"TLC state graph: {len(G.nodes())} nodes, {len(G.edges())} edges")
     knowledge.validate_state_transitions(G, node_map)
 
-    indist_G, agents = knowledge.build_indistinguishability_graph(node_map)
+    eq_classes = knowledge.build_equivalence_classes(node_map)
+    indist_G, agents = knowledge.build_indistinguishability_graph(node_map, eq_classes)
     print(f"Agents: {agents}")
     print(f"Indistinguishability graph: {len(indist_G.nodes())} nodes, {len(indist_G.edges())} edges")
 
     # Evaluate ψ = K(0, K(1, r[1]) ∨ K(2, r[2]))
     # "Agent 0 knows that agent 1 or 2 knows the log entry"
-    psi_states = set()
-    for s in indist_G.nodes():
-        s0 = agent_neighbors(indist_G, s, "0")
-        psi = all(
-            all(node_map[t]["r"]["1"] for t in agent_neighbors(indist_G, s1, "1"))
-            or all(node_map[t]["r"]["2"] for t in agent_neighbors(indist_G, s1, "2"))
-            for s1 in s0
-        )
-        if psi:
-            psi_states.add(s)
+    sat_r1 = {fp for fp, s in node_map.items() if s["r"]["1"]}
+    sat_r2 = {fp for fp, s in node_map.items() if s["r"]["2"]}
+    sat_k1 = knowledge.eval_k("1", sat_r1, eq_classes)
+    sat_k2 = knowledge.eval_k("2", sat_r2, eq_classes)
+    psi_states = knowledge.eval_k("0", sat_k1 | sat_k2, eq_classes)
 
     print(f"ψ = K(0, K(1,r[1]) ∨ K(2,r[2])) holds at {len(psi_states)} states:")
     for fp in psi_states:

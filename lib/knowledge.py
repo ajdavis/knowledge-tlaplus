@@ -72,18 +72,49 @@ def validate_state_transitions(G: nx.DiGraph, node_map: dict):
             )
 
 
-def build_indistinguishability_graph(node_map: dict) -> tuple[nx.Graph, list]:
+def build_equivalence_classes(node_map: dict) -> dict[str, list[frozenset]]:
+    """Compute indistinguishability equivalence classes per agent.
+
+    Returns:
+        dict mapping agent ID to list of equivalence classes, where each class
+        is a frozenset of state fingerprints.
+    """
+    agents = get_agents(node_map)
+    result = {}
+    for agent in agents:
+        groups = defaultdict(list)
+        for fp, state in node_map.items():
+            local = _to_hashable(get_local_state(state, agent))
+            groups[local].append(fp)
+        result[agent] = [frozenset(fps) for fps in groups.values()]
+    return result
+
+
+def eval_k(agent: str, phi_states: set, eq_classes: dict[str, list[frozenset]]) -> set:
+    """Evaluate K(agent, φ): states where agent knows φ.
+
+    K(agent, φ) holds at state s iff φ holds at all states in s's equivalence
+    class for that agent.
+    """
+    result = set()
+    for cls in eq_classes[agent]:
+        if cls.issubset(phi_states):
+            result.update(cls)
+    return result
+
+
+def build_indistinguishability_graph(
+    node_map: dict, eq_classes: dict[str, list[frozenset]]
+) -> tuple[nx.Graph, list]:
     """Build an indistinguishability graph from TLC states.
 
     Two states are connected by an edge labeled with agents if those agents have
     the same local state in both. This is the standard Kripke structure for
     epistemic logic.
 
-    Requires states to have an AGENT_STATES variable listing variable names,
-    where each listed variable is indexed by agent ID.
-
     Args:
         node_map: Maps state fingerprints to state values (from tlc.parse_state_graph)
+        eq_classes: Equivalence classes from build_equivalence_classes.
 
     Returns:
         (G, agents) where G is an undirected graph with states as nodes and edges labeled with the
@@ -91,21 +122,14 @@ def build_indistinguishability_graph(node_map: dict) -> tuple[nx.Graph, list]:
     """
     agents = get_agents(node_map)
 
-    # Collect all agents that can't distinguish each pair of states
+    # Build pairwise edges from equivalence classes
     edge_agents = defaultdict(list)
-
     for agent in agents:
-        groups = defaultdict(list)
-        for fp, state in node_map.items():
-            local = get_local_state(state, agent)
-            local = _to_hashable(local)
-            groups[local].append(fp)
-
-        for fps in groups.values():
+        for cls in eq_classes[agent]:
+            fps = sorted(cls)
             for i, fp1 in enumerate(fps):
                 for fp2 in fps[i + 1:]:
-                    edge_key = (min(fp1, fp2), max(fp1, fp2))
-                    edge_agents[edge_key].append(agent)
+                    edge_agents[(fp1, fp2)].append(agent)
 
     G = nx.Graph()
     G.add_nodes_from(node_map.keys())
