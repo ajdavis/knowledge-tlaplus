@@ -12,6 +12,15 @@ from lib import tlc, knowledge
 THIS_DIR = Path(__file__).parent
 
 
+def agent_neighbors(G, node, agent):
+    """States indistinguishable from node for agent (including node itself)."""
+    result = {node}
+    for _, nbr, data in G.edges(node, data=True):
+        if agent in data["agents"]:
+            result.add(nbr)
+    return result
+
+
 def state_label(state: dict) -> str:
     """Create a human-readable label for a state."""
     r, a = state["r"], state["a"]
@@ -32,11 +41,33 @@ if __name__ == "__main__":
     print(f"Agents: {agents}")
     print(f"Indistinguishability graph: {len(indist_G.nodes())} nodes, {len(indist_G.edges())} edges")
 
+    # Evaluate ψ = K(0, K(1, r[1]) ∨ K(2, r[2]))
+    # "Agent 0 knows that agent 1 or 2 knows the log entry"
+    psi_states = set()
+    for s in indist_G.nodes():
+        s0 = agent_neighbors(indist_G, s, "0")
+        psi = all(
+            all(node_map[t]["r"]["1"] for t in agent_neighbors(indist_G, s1, "1"))
+            or all(node_map[t]["r"]["2"] for t in agent_neighbors(indist_G, s1, "2"))
+            for s1 in s0
+        )
+        if psi:
+            psi_states.add(s)
+
+    print(f"ψ = K(0, K(1,r[1]) ∨ K(2,r[2])) holds at {len(psi_states)} states:")
+    for fp in psi_states:
+        print(f"  {state_label(node_map[fp])}")
+
     AGENT_COLORS = {"0": "red", "1": "blue", "2": "darkgreen"}
 
     # Add labels and colors to nodes and edges for DOT export
     for fp in indist_G.nodes():
-        indist_G.nodes[fp]["label"] = state_label(node_map[fp])
+        label = state_label(node_map[fp])
+        if fp in psi_states:
+            label += "\nψ"
+            indist_G.nodes[fp]["style"] = "filled"
+            indist_G.nodes[fp]["fillcolor"] = "yellow"
+        indist_G.nodes[fp]["label"] = label
     for u, v, data in indist_G.edges(data=True):
         agent_list = data["agents"]
         if len(agent_list) == 1:
