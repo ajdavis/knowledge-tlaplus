@@ -17,10 +17,12 @@ Deals == {<<c1, c2, c3>> \in Cards \X Cards \X Cards :
 
 (* --algorithm CardGame
 variables
-    deal \in Deals;
+    AGENT_STATES = <<"hand">>,
+    deal \in Deals,
+    \* hand[a] = the card agent a can see (their own card)
+    hand = [a \in Agents |-> deal[a]];
 
 define
-    hand(agent) == deal[agent]
     table == deal[3]
 end define;
 
@@ -31,26 +33,27 @@ end process;
 
 end algorithm; *)
 
-\* BEGIN TRANSLATION (chksum(pcal) = "50a32e54" /\ chksum(tla) = "d91ed12e")
-VARIABLES deal, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "f9ee7e7a" /\ chksum(tla) = "935af0f2")
+VARIABLES AGENT_STATES, deal, hand, pc
 
 (* define statement *)
-hand(agent) == deal[agent]
 table == deal[3]
 
 
-vars == << deal, pc >>
+vars == << AGENT_STATES, deal, hand, pc >>
 
 ProcSet == (Agents)
 
 Init == (* Global variables *)
+        /\ AGENT_STATES = <<"hand">>
         /\ deal \in Deals
+        /\ hand = [a \in Agents |-> deal[a]]
         /\ pc = [self \in ProcSet |-> "Skip"]
 
 Skip(self) == /\ pc[self] = "Skip"
               /\ TRUE
               /\ pc' = [pc EXCEPT ![self] = "Done"]
-              /\ deal' = deal
+              /\ UNCHANGED << AGENT_STATES, deal, hand >>
 
 Agent(self) == Skip(self)
 
