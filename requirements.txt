@@ -1,3 +1,5 @@
+hypothesis
+lark
 networkx
 pydot
 pytest
