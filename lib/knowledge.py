@@ -25,7 +25,7 @@ def get_agents(node_map: dict) -> list:
     if isinstance(var_val, dict):
         return sorted(var_val.keys())
     else:
-        return [str(i) for i in range(len(var_val))]
+        return [str(i + 1) for i in range(len(var_val))]
 
 
 def get_local_state(state: dict, agent: str) -> tuple:
@@ -41,7 +41,7 @@ def get_local_state(state: dict, agent: str) -> tuple:
         if isinstance(var_val, dict):
             result.append(var_val[agent])
         else:
-            result.append(var_val[int(agent)])
+            result.append(var_val[int(agent) - 1])
     return tuple(result)
 
 
