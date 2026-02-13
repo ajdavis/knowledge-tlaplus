@@ -7,7 +7,7 @@ from pathlib import Path
 from networkx.drawing.nx_pydot import write_dot
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from lib import tlc, kripke
+from lib import tlc, kripke, formulas
 
 THIS_DIR = Path(__file__).parent
 
@@ -35,11 +35,8 @@ if __name__ == "__main__":
 
     # Evaluate ψ = K(0, K(1, r[1]) ∨ K(2, r[2]))
     # "Agent 0 knows that agent 1 or 2 knows the log entry"
-    sat_r1 = {fp for fp, s in node_map.items() if s["r"]["1"]}
-    sat_r2 = {fp for fp, s in node_map.items() if s["r"]["2"]}
-    sat_k1 = kripke.eval_k("1", sat_r1, eq_classes)
-    sat_k2 = kripke.eval_k("2", sat_r2, eq_classes)
-    psi_states = kripke.eval_k("0", sat_k1 | sat_k2, eq_classes)
+    psi = formulas.parse(r"K(0, K(1, r[1]) \/ K(2, r[2]))")
+    psi_states = kripke.eval_formula(psi, node_map, eq_classes)
 
     print(f"ψ = K(0, K(1,r[1]) ∨ K(2,r[2])) holds at {len(psi_states)} states:")
     for fp in psi_states:

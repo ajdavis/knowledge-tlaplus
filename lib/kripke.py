@@ -103,6 +103,56 @@ def eval_k(agent: str, phi_states: set, eq_classes: dict[str, list[frozenset]]) 
     return result
 
 
+def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]]) -> set:
+    """Evaluate a parsed epistemic formula, returning the set of satisfying states."""
+    from lib import formulas
+
+    all_fps = set(node_map.keys())
+    match ast:
+        case formulas.Var(name, index):
+            if index is not None:
+                return {fp for fp, s in node_map.items() if _lookup(s[name], index)}
+            return {fp for fp, s in node_map.items() if s[name]}
+        case formulas.BoolLit(value):
+            return all_fps if value else set()
+        case formulas.Not(body):
+            return all_fps - eval_formula(body, node_map, eq_classes)
+        case formulas.And(left, right):
+            return eval_formula(left, node_map, eq_classes) & eval_formula(right, node_map, eq_classes)
+        case formulas.Or(left, right):
+            return eval_formula(left, node_map, eq_classes) | eval_formula(right, node_map, eq_classes)
+        case formulas.K(agent, body):
+            return eval_k(str(agent), eval_formula(body, node_map, eq_classes), eq_classes)
+        case formulas.E(body):
+            phi = eval_formula(body, node_map, eq_classes)
+            agents = get_agents(node_map)
+            result = all_fps
+            for agent in agents:
+                result &= eval_k(agent, phi, eq_classes)
+            return result
+        case formulas.C(body):
+            # Fixed-point: C(φ) = E(φ) ∧ E(E(φ)) ∧ ...
+            phi = eval_formula(body, node_map, eq_classes)
+            agents = get_agents(node_map)
+            result = all_fps
+            current = phi
+            while True:
+                e_current = all_fps
+                for agent in agents:
+                    e_current &= eval_k(agent, current, eq_classes)
+                result &= e_current
+                if result == current:
+                    return result
+                current = result
+
+
+def _lookup(val, index: int):
+    """Look up an index in a dict-or-list state variable."""
+    if isinstance(val, dict):
+        return val[str(index)]
+    return val[index]
+
+
 def build_indistinguishability_graph(
     node_map: dict, eq_classes: dict[str, list[frozenset]]
 ) -> tuple[nx.Graph, list]:
