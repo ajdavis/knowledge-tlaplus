@@ -21,7 +21,11 @@ python3 -m venv .venv
 .venv/bin/pytest tests/
 ```
 
-A pre-commit hook runs tests automatically. It's in `.git/hooks/pre-commit`.
+A pre-commit hook runs tests and all analysis scripts. Enable it with:
+
+```bash
+git config core.hooksPath .githooks
+```
 
 ## Architecture
 
