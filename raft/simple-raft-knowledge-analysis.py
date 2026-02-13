@@ -7,7 +7,7 @@ from pathlib import Path
 from networkx.drawing.nx_pydot import write_dot
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from lib import tlc, knowledge
+from lib import tlc, kripke
 
 THIS_DIR = Path(__file__).parent
 
@@ -26,10 +26,10 @@ if __name__ == "__main__":
     tlc.run(THIS_DIR / "SimpleRaft.tla")
     G, node_map, edge_actions = tlc.parse_state_graph(THIS_DIR / "SimpleRaft")
     print(f"TLC state graph: {len(G.nodes())} nodes, {len(G.edges())} edges")
-    knowledge.validate_state_transitions(G, node_map)
+    kripke.validate_state_transitions(G, node_map)
 
-    eq_classes = knowledge.build_equivalence_classes(node_map)
-    indist_G, agents = knowledge.build_indistinguishability_graph(node_map, eq_classes)
+    eq_classes = kripke.build_equivalence_classes(node_map)
+    indist_G, agents = kripke.build_indistinguishability_graph(node_map, eq_classes)
     print(f"Agents: {agents}")
     print(f"Indistinguishability graph: {len(indist_G.nodes())} nodes, {len(indist_G.edges())} edges")
 
@@ -37,9 +37,9 @@ if __name__ == "__main__":
     # "Agent 0 knows that agent 1 or 2 knows the log entry"
     sat_r1 = {fp for fp, s in node_map.items() if s["r"]["1"]}
     sat_r2 = {fp for fp, s in node_map.items() if s["r"]["2"]}
-    sat_k1 = knowledge.eval_k("1", sat_r1, eq_classes)
-    sat_k2 = knowledge.eval_k("2", sat_r2, eq_classes)
-    psi_states = knowledge.eval_k("0", sat_k1 | sat_k2, eq_classes)
+    sat_k1 = kripke.eval_k("1", sat_r1, eq_classes)
+    sat_k2 = kripke.eval_k("2", sat_r2, eq_classes)
+    psi_states = kripke.eval_k("0", sat_k1 | sat_k2, eq_classes)
 
     print(f"ψ = K(0, K(1,r[1]) ∨ K(2,r[2])) holds at {len(psi_states)} states:")
     for fp in psi_states:

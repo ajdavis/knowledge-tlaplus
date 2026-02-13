@@ -1,4 +1,4 @@
-"""Epistemic logic / knowledge analysis utilities."""
+"""Kripke structure: equivalence classes, indistinguishability graph, evaluation."""
 from collections import defaultdict
 
 import networkx as nx

@@ -34,7 +34,7 @@ AGENT_STATE(self) == <<
 
 ### 1.4 Integration
 - [ ] Create `lib/knowledge_file.py` - parse .knowledge files
-- [ ] Update `lib/knowledge.py` to accept AGENT_STATE expression
+- [ ] Update `lib/kripke.py` to accept AGENT_STATE expression
 - [ ] Move generic logic from `muddy-children-knowledge-analysis.py:41-67` into lib/
 
 ## Phase 2: Epistemic operators (K, E, C)
@@ -48,7 +48,7 @@ C(m)                    # common knowledge of m
 ```
 
 ### 2.2 Evaluation
-- [ ] `lib/epistemic.py` - evaluate K, E, C on indistinguishability graph
+- [ ] `lib/formulas.py` - evaluate K, E, C on indistinguishability graph
 - [ ] Annotate DOT output with property values
 
 ## Phase 3: Polish

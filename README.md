@@ -32,8 +32,8 @@ git config core.hooksPath .githooks
 1. **TLA+/PlusCal spec** → TLC → state graph (JSON)
 2. **`.knowledge` file** declares AGENT_STATE (what each agent sees) and epistemic properties
 3. **`lib/tla_eval.py`** evaluates TLA+ expressions against state values (uses tree-sitter-tlaplus)
-4. **`lib/knowledge.py`** builds indistinguishability graph (Kripke structure) using AGENT_STATE
-5. **`lib/epistemic.py`** evaluates K, E, C properties on the graph
+4. **`lib/kripke.py`** builds indistinguishability graph (Kripke structure) using AGENT_STATE
+5. **`lib/formulas.py`** parses and evaluates K, E, C properties on the graph
 
 ## .knowledge File Format
 

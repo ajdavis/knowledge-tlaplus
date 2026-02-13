@@ -1,4 +1,4 @@
-"""Epistemic expression parser: parse formula strings into an AST."""
+"""Epistemic formula parser: parse formula strings into an AST."""
 from dataclasses import dataclass
 from lark import Lark, Transformer, v_args
 

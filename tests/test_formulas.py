@@ -1,4 +1,4 @@
-"""Tests for the epistemic expression parser."""
+"""Tests for the epistemic formula parser."""
 import sys
 from pathlib import Path
 
@@ -8,7 +8,7 @@ from hypothesis import strategies as st
 from lark.exceptions import UnexpectedInput
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from lib.epistemic import (
+from lib.formulas import (
     And, BoolLit, C, E, K, Not, Or, Var, parse,
 )
 

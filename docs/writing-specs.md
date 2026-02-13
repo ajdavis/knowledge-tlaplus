@@ -24,7 +24,7 @@ indistinguishability graph and corrupts the epistemic analysis.
 
 **Rule: every labeled step in PlusCal must assign to at least one `AGENT_STATES` variable.**
 
-The `validate_state_transitions()` function in `lib/knowledge.py` checks this and raises
+The `validate_state_transitions()` function in `lib/kripke.py` checks this and raises
 `AssertionError` if any transition violates it.
 
 ### Common Violations and Fixes
