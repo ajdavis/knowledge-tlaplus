@@ -19,8 +19,6 @@ Children == 1..N
 
 (* --algorithm MuddyChildren
 variables
-    \* Variables listed here are indexed by agent ID for knowledge analysis
-    AGENT_STATES = <<"seesMuddy", "saidYes", "m", "q">>,
     \* muddy[i] = TRUE iff child i has mud (never changes, not directly visible to i)
     muddy \in {f \in [Children -> BOOLEAN] : \E i \in Children : f[i]},
     \* seesMuddy[i] = set of muddy children visible to i (initialized, never changes)
@@ -50,18 +48,17 @@ end process;
 end algorithm; *)
 
 \* BEGIN TRANSLATION
-VARIABLES AGENT_STATES, muddy, seesMuddy, saidYes, m, q, pc
+VARIABLES muddy, seesMuddy, saidYes, m, q, pc
 
 (* define statement *)
 SaysYes(i) == m[i] /\ q[i] + 1 = Cardinality(seesMuddy[i]) + 1
 
 
-vars == << AGENT_STATES, muddy, seesMuddy, saidYes, m, q, pc >>
+vars == << muddy, seesMuddy, saidYes, m, q, pc >>
 
 ProcSet == {0}
 
 Init == (* Global variables *)
-        /\ AGENT_STATES = <<"seesMuddy", "saidYes", "m", "q">>
         /\ muddy \in {f \in [Children -> BOOLEAN] : \E i \in Children : f[i]}
         /\ seesMuddy = [i \in Children |-> {j \in Children : j /= i /\ muddy[j]}]
         /\ saidYes = [i \in Children |-> {}]
@@ -76,7 +73,7 @@ Ask == /\ pc[0] = "Ask"
                   /\ pc' = [pc EXCEPT ![0] = "Ask"]
              ELSE /\ pc' = [pc EXCEPT ![0] = "Done"]
                   /\ UNCHANGED << saidYes, q >>
-       /\ UNCHANGED << AGENT_STATES, muddy, seesMuddy, m >>
+       /\ UNCHANGED << muddy, seesMuddy, m >>
 
 AskLoop == Ask
 

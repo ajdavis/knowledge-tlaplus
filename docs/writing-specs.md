@@ -114,3 +114,14 @@ SendSecond:
         sent[f] := TRUE;
     end with;
 ```
+
+## Controller Pattern (Simultaneous Transitions)
+
+Some puzzles require all agents to transition simultaneously — e.g. the muddy children puzzle, where
+the father's question and all children's responses are a single atomic event. PlusCal's interleaving
+semantics (`\E self \in ProcSet: ...`) cannot model this with one process per agent.
+
+For these specs, use a **controller process** that atomically updates all agents' state in a single
+step. The analysis script must define agents and their local state manually instead of using
+`pcal.py`'s automatic mapping. See `muddy-children/muddy-children-knowledge-analysis.py` for an
+example.

@@ -10,6 +10,7 @@
 ## Next
 - [ ] One script that can do epistemic analysis on any PlusCal spec, given epistemic properties
       in a comment
-- [ ] Adapt MuddyChildren and CardGame to the process-local-variable pattern
+- [X] CardGame uses process-local `hand` variable
+- [N/A] MuddyChildren: PlusCal can't model simultaneous transitions, stays as controller pattern
 - [ ] Better graph visualization
 - [ ] Annotate DOT output with property values
