@@ -22,20 +22,19 @@ if __name__ == "__main__":
     G, node_map, edge_actions = tlc.parse_state_graph(THIS_DIR / "CardGame")
     print(f"TLC state graph: {len(G.nodes())} nodes, {len(G.edges())} edges")
 
-    # Filter to initial states only (pc = "Skip" for both agents)
+    # Filter to initial states only (before Skip transitions to Done)
     filtered_states = {
         fp: val for fp, val in node_map.items()
         if val["pc"] == ["Skip", "Skip"]
     }
     print(f"States (excluding Done): {len(filtered_states)}")
 
+    processes = pcal.parse_processes(THIS_DIR / "CardGame.tla")
     agents = pcal.get_agents(node_map)
+    agent_map = pcal.map_agents_to_processes(processes, node_map)
 
     def local_state_fn(state, agent):
-        hand = state["hand"]
-        if isinstance(hand, dict):
-            return (hand[agent],)
-        return (hand[int(agent) - 1],)
+        return pcal.get_local_state(state, agent, agent_map)
 
     kripke.validate_state_transitions(G, filtered_states, agents, local_state_fn)
 

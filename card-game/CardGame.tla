@@ -4,9 +4,12 @@
 (* "Suppose that we have a deck consisting of three cards labeled A, B,    *)
 (* and C. Agents 1 and 2 each get one of these cards; the third card is    *)
 (* left face down."                                                        *)
+(*                                                                         *)
+(* Agent-observable state = PlusCal process-local variables.               *)
+(* Each agent sees only their own hand (card).                             *)
 (***************************************************************************)
 
-EXTENDS Naturals, FiniteSets, TLC, Sequences
+EXTENDS Naturals, FiniteSets
 
 Cards == {"A", "B", "C"}
 Agents == {1, 2}
@@ -17,43 +20,42 @@ Deals == {<<c1, c2, c3>> \in Cards \X Cards \X Cards :
 
 (* --algorithm CardGame
 variables
-    AGENT_STATES = <<"hand">>,
-    deal \in Deals,
-    \* hand[a] = the card agent a can see (their own card)
-    hand = [a \in Agents |-> deal[a]];
+    deal \in Deals;
 
 define
     table == deal[3]
 end define;
 
 process Agent \in Agents
+variable hand = deal[self];
 begin
     Skip: skip
 end process;
 
 end algorithm; *)
 
-\* BEGIN TRANSLATION (chksum(pcal) = "f9ee7e7a" /\ chksum(tla) = "935af0f2")
-VARIABLES AGENT_STATES, deal, hand, pc
+\* BEGIN TRANSLATION
+VARIABLES deal, pc
 
 (* define statement *)
 table == deal[3]
 
+VARIABLE hand
 
-vars == << AGENT_STATES, deal, hand, pc >>
+vars == << deal, pc, hand >>
 
 ProcSet == (Agents)
 
 Init == (* Global variables *)
-        /\ AGENT_STATES = <<"hand">>
         /\ deal \in Deals
-        /\ hand = [a \in Agents |-> deal[a]]
+        (* Process Agent *)
+        /\ hand = [self \in Agents |-> deal[self]]
         /\ pc = [self \in ProcSet |-> "Skip"]
 
 Skip(self) == /\ pc[self] = "Skip"
               /\ TRUE
               /\ pc' = [pc EXCEPT ![self] = "Done"]
-              /\ UNCHANGED << AGENT_STATES, deal, hand >>
+              /\ UNCHANGED << deal, hand >>
 
 Agent(self) == Skip(self)
 
