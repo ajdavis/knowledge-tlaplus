@@ -29,33 +29,24 @@ git config core.hooksPath .githooks
 
 ## Architecture
 
-1. **TLA+/PlusCal spec** → TLC → state graph (JSON)
-2. **`.knowledge` file** declares AGENT_STATE (what each agent sees) and epistemic properties
-3. **`lib/tla_eval.py`** evaluates TLA+ expressions against state values (uses tree-sitter-tlaplus)
-4. **`lib/kripke.py`** builds indistinguishability graph (Kripke structure) using AGENT_STATE
-5. **`lib/formulas.py`** parses and evaluates K, E, C properties on the graph
+1. **TLA+/PlusCal spec** — each PlusCal process is an agent; process-local variables define what
+   the agent can observe. Global variables (e.g. a network) are used for communication but are not
+   part of any agent's local state.
+2. **`lib/pcal.py`** parses PlusCal to extract the process-to-variable mapping, then maps TLC
+   agent IDs to processes via initial `pc` labels.
+3. **`lib/kripke.py`** builds indistinguishability equivalence classes and the Kripke structure
+   from the agent observation model.
+4. **`lib/formulas.py`** parses epistemic formulas (K, E, C, boolean connectives) and evaluates
+   them on the Kripke structure.
+5. **`lib/tlc.py`** runs TLC and parses the JSON state graph output.
 
-## .knowledge File Format
+## Epistemic Semantics
 
-```
-# AGENT_STATE: TLA+ expression defining what agent `self` can observe
-# Used to determine state indistinguishability (like TLA+ VIEW)
-AGENT_STATE(self) == <<
-  {j \in Children : j /= self /\ muddy[j]},
-  {j \in Children : saidYes[j]},
-  m,
-  q
->>
+- **K(i, φ)** at state s: φ holds at all states indistinguishable from s for agent i
+- **E(φ)**: K(i, φ) for all agents i (everyone knows)
+- **C(φ)**: fixed point — φ holds at all states reachable via indistinguishability edges
+  (common knowledge)
 
-# Epistemic properties to evaluate
-K(1, muddy[1])          # agent 1 knows muddy[1]
-K(1, K(2, muddy[1]))    # agent 1 knows that agent 2 knows muddy[1]
-E(m)                    # everyone knows m
-C(m)                    # common knowledge of m
-```
-
-## Epistemic Semantics (Kripke/view-based)
-
-- **K(i, φ)** at state s: φ holds at s and all s' where AGENT_STATE(i) is equal
-- **E(φ)**: K(i, φ) for all agents i
-- **C(φ)**: φ holds at all states reachable via indistinguishability edges
+Two states are indistinguishable for agent i when the agent's process-local variables have the
+same values in both states. See [docs/writing-specs.md](docs/writing-specs.md) for details on
+writing specs for knowledge analysis.

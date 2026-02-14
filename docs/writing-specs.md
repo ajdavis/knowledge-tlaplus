@@ -1,28 +1,59 @@
 # Writing TLA+/PlusCal Specs for Knowledge Analysis
 
-## AGENT_STATES Convention
+## Agent Observation Model
 
-Declare an `AGENT_STATES` variable listing the variable names that represent each agent's local
-state. Each listed variable must be indexed by agent ID.
+Each PlusCal process represents an agent. An agent's **local state** — what it can observe — is
+defined by its process-local variables. The `pcal.py` module parses the PlusCal source to extract
+the mapping from processes to local variables, and uses it to compute each agent's observations
+automatically.
 
-```tla
+For a **set process** (`\in expr`), each agent sees its own index into the variable. For a
+**singleton process** (`= expr`), the agent sees the whole variable value.
+
+Example from SimpleRaft:
+
+```pluscal
+process LeaderProc = Leader
 variables
-    AGENT_STATES = <<"x", "y">>,
-    x = [n \in Agents |-> ...],
-    y = [n \in Agents |-> ...];
+    sent = [f \in Followers |-> FALSE],
+    acks = [f \in Followers |-> FALSE];
+begin ...
+
+process FollowerProc \in Followers
+variable received = FALSE;
+begin ...
 ```
 
-## Every Atomic Step Must Change an Agent-Visible Variable
+- Agent 0 (leader, singleton) observes: `(sent, acks)`
+- Agent 1 (follower, set) observes: `(received[1],)`
+- Agent 2 (follower, set) observes: `(received[2],)`
+
+The analysis script derives this automatically:
+
+```python
+processes = pcal.parse_processes("SimpleRaft.tla")
+agents = pcal.get_agents(node_map)
+agent_map = pcal.map_agents_to_processes(processes, node_map)
+
+def local_state_fn(state, agent):
+    return pcal.get_local_state(state, agent, agent_map)
+```
+
+Global variables (like `network`) are not part of any agent's local state. Use them for
+communication channels that agents read from and write to, updating their own local variables
+to record what they've learned.
+
+## Every Atomic Step Must Change a Process-Local Variable
 
 PlusCal compiles each labeled step into a TLA+ action that updates the `pc` (program counter)
-variable. The knowledge analysis ignores `pc` — it only considers the variables in `AGENT_STATES`
+variable. The knowledge analysis ignores `pc` — it only considers process-local variables
 when determining which states are indistinguishable to an agent.
 
-If a labeled step changes only `pc` and no `AGENT_STATES` variable, the state graph will contain
-distinct states that look identical to every agent. This produces duplicate nodes in the
-indistinguishability graph and corrupts the epistemic analysis.
+If a labeled step changes only `pc` (or only global variables) without changing any process-local
+variable, the state graph will contain distinct states that look identical to every agent. This
+produces duplicate nodes in the indistinguishability graph and corrupts the epistemic analysis.
 
-**Rule: every labeled step in PlusCal must assign to at least one `AGENT_STATES` variable.**
+**Rule: every labeled step must assign to at least one process-local variable.**
 
 The `validate_state_transitions()` function in `lib/kripke.py` checks this and raises
 `AssertionError` if any transition violates it.
@@ -32,44 +63,54 @@ The `validate_state_transitions()` function in `lib/kripke.py` checks this and r
 **`await` / guard on its own label.** A step that only waits for a condition, then advances to the
 next label:
 
-```tla
+```pluscal
 \* BAD: WaitForEntry changes only pc
 WaitForEntry:
-    await r[self];
-Acknowledge:
-    a[Leader][self] := TRUE;
+    await [type |-> "send", dest |-> self] \in network;
+ReceiveAndAck:
+    received := TRUE;
+    network := network \union {[type |-> "ack", src |-> self]};
 ```
 
 Fix: merge the guard into the step that does the assignment:
 
-```tla
+```pluscal
 \* GOOD: single step with guard + assignment
-Acknowledge:
-    await r[self];
-    a[Leader][self] := TRUE;
+ReceiveAndAck:
+    await [type |-> "send", dest |-> self] \in network;
+    received := TRUE;
+    network := network \union {[type |-> "ack", src |-> self]};
 ```
 
 **`skip` or `either/or skip`.** A step that does nothing (or nondeterministically does nothing):
 
-```tla
+```pluscal
 \* BAD: skip iteration changes only pc
 LeaderLoop:
     while TRUE do
         either
-            with f \in Followers do r[f] := TRUE; end with;
+            with f \in Followers do
+                network := network \union {[type |-> "send", dest |-> f]};
+                sent[f] := TRUE;
+            end with;
         or
             skip;
         end either;
     end while;
 ```
 
-Fix: restructure so each step performs an assignment. For example, replace the loop with sequential
-nondeterministic steps:
+Fix: restructure so each step assigns to a local variable:
 
-```tla
-\* GOOD: each step assigns to r
+```pluscal
+\* GOOD: each step assigns to sent
 SendFirst:
-    with f \in Followers do r[f] := TRUE; end with;
+    with f \in Followers do
+        network := network \union {[type |-> "send", dest |-> f]};
+        sent[f] := TRUE;
+    end with;
 SendSecond:
-    with f \in {f \in Followers : ~r[f]} do r[f] := TRUE; end with;
+    with f \in {f \in Followers : ~sent[f]} do
+        network := network \union {[type |-> "send", dest |-> f]};
+        sent[f] := TRUE;
+    end with;
 ```

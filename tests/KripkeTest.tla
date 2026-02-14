@@ -15,7 +15,6 @@ Agents == {0, 1}
 
 (* --algorithm KripkeTest
 variables
-    AGENT_STATES = <<"v", "w">>,
     v = [a \in Agents |-> FALSE],
     w = [a \in Agents |-> FALSE];
 
@@ -29,14 +28,13 @@ end process;
 end algorithm; *)
 
 \* BEGIN TRANSLATION
-VARIABLES AGENT_STATES, v, w, pc
+VARIABLES v, w, pc
 
-vars == << AGENT_STATES, v, w, pc >>
+vars == << v, w, pc >>
 
 ProcSet == (Agents)
 
 Init == (* Global variables *)
-        /\ AGENT_STATES = <<"v", "w">>
         /\ v = [a \in Agents |-> FALSE]
         /\ w = [a \in Agents |-> FALSE]
         /\ pc = [self \in ProcSet |-> "Act"]
@@ -45,7 +43,6 @@ Act(self) == /\ pc[self] = "Act"
              /\ v' = [v EXCEPT ![self] = TRUE]
              /\ w' = [a \in Agents |-> TRUE]
              /\ pc' = [pc EXCEPT ![self] = "Done"]
-             /\ UNCHANGED AGENT_STATES
 
 Agent(self) == Act(self)
 

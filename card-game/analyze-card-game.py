@@ -7,7 +7,7 @@ from pathlib import Path
 from networkx.drawing.nx_pydot import write_dot
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from lib import tlc, kripke
+from lib import tlc, kripke, pcal
 
 THIS_DIR = Path(__file__).parent
 
@@ -28,9 +28,18 @@ if __name__ == "__main__":
         if val["pc"] == ["Skip", "Skip"]
     }
     print(f"States (excluding Done): {len(filtered_states)}")
-    kripke.validate_state_transitions(G, filtered_states)
 
-    eq_classes = kripke.build_equivalence_classes(filtered_states)
+    agents = pcal.get_agents(node_map)
+
+    def local_state_fn(state, agent):
+        hand = state["hand"]
+        if isinstance(hand, dict):
+            return (hand[agent],)
+        return (hand[int(agent) - 1],)
+
+    kripke.validate_state_transitions(G, filtered_states, agents, local_state_fn)
+
+    eq_classes = kripke.build_equivalence_classes(filtered_states, agents, local_state_fn)
     indist_G, agents = kripke.build_indistinguishability_graph(filtered_states, eq_classes)
     print(f"Agents: {agents}")
     print(f"Indistinguishability graph: {len(indist_G.nodes())} nodes, {len(indist_G.edges())} edges")

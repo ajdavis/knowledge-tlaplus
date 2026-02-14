@@ -7,9 +7,15 @@ import pytest
 from networkx.drawing.nx_pydot import write_dot
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from lib import tlc, kripke, formulas
+from lib import tlc, kripke, formulas, pcal
 
 THIS_DIR = Path(__file__).parent
+
+
+def _local_state(state, agent):
+    """Agent i observes (v[i], w[i])."""
+    return (kripke._lookup(state["v"], int(agent)),
+            kripke._lookup(state["w"], int(agent)))
 
 
 @pytest.fixture(scope="module")
@@ -34,8 +40,9 @@ def model():
     """
     tlc.run(THIS_DIR / "KripkeTest.tla")
     G, node_map, _ = tlc.parse_state_graph(THIS_DIR / "KripkeTest")
-    kripke.validate_state_transitions(G, node_map)
-    eq_classes = kripke.build_equivalence_classes(node_map)
+    agents = pcal.get_agents(node_map)
+    kripke.validate_state_transitions(G, node_map, agents, _local_state)
+    eq_classes = kripke.build_equivalence_classes(node_map, agents, _local_state)
 
     # Index states by (v[0], v[1]) for readable assertions
     state_index = {}
@@ -145,12 +152,12 @@ def test_e_conjunction(model):
 # -- C (common knowledge) --
 
 def test_c_nontrivial(model):
-    """v[0] \/ v[1] is common knowledge in the {act0, act1, both} component
+    r"""v[0] \/ v[1] is common knowledge in the {act0, act1, both} component
     but not at init."""
     assert _eval(r"C(v[0] \/ v[1])", model) == _states(model, "act0", "act1", "both")
 
 def test_c_nontrivial_other(model):
-    """~v[0] /\ ~v[1] is common knowledge only at init (its own component)."""
+    r"""~v[0] /\ ~v[1] is common knowledge only at init (its own component)."""
     assert _eval(r"C(~v[0] /\ ~v[1])", model) == _states(model, "init")
 
 def test_c_true(model):

@@ -1,14 +1,13 @@
 ---------------------------- MODULE BadSpec ----------------------------
 (***************************************************************************)
 (* Minimal spec that violates the knowledge analysis rule: the Wait step  *)
-(* changes only pc, not any AGENT_STATES variable.                        *)
+(* changes only pc, not any agent-visible variable.                       *)
 (***************************************************************************)
 
 EXTENDS Naturals
 
 (* --algorithm BadSpec
 variables
-    AGENT_STATES = <<"x">>,
     x = [n \in {1, 2} |-> 0];
 
 process Proc \in {1, 2}
@@ -22,26 +21,24 @@ end process;
 end algorithm; *)
 
 \* BEGIN TRANSLATION
-VARIABLES AGENT_STATES, x, pc
+VARIABLES x, pc
 
-vars == << AGENT_STATES, x, pc >>
+vars == << x, pc >>
 
 ProcSet == ({1, 2})
 
 Init == (* Global variables *)
-        /\ AGENT_STATES = <<"x">>
         /\ x = [n \in {1, 2} |-> 0]
         /\ pc = [self \in ProcSet |-> "Wait"]
 
 Wait(self) == /\ pc[self] = "Wait"
               /\ TRUE
               /\ pc' = [pc EXCEPT ![self] = "DoWork"]
-              /\ UNCHANGED << AGENT_STATES, x >>
+              /\ x' = x
 
 DoWork(self) == /\ pc[self] = "DoWork"
                 /\ x' = [x EXCEPT ![self] = 1]
                 /\ pc' = [pc EXCEPT ![self] = "Done"]
-                /\ UNCHANGED AGENT_STATES
 
 Proc(self) == Wait(self) \/ DoWork(self)
 

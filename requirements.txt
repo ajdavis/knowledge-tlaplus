@@ -3,3 +3,5 @@ lark
 networkx
 pydot
 pytest
+tree-sitter
+tree-sitter-tlaplus
