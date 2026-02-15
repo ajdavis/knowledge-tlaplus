@@ -12,14 +12,6 @@ from lib import tlc, kripke, formulas, pcal
 from lib.kripke import _to_hashable
 
 
-def all_done(state):
-    """True if every process is in Done state."""
-    pc = state["pc"]
-    if isinstance(pc, dict):
-        return all(v == "Done" for v in pc.values())
-    return all(v == "Done" for v in pc)
-
-
 def collapse_states(node_map, agents, local_state_fn):
     """Deduplicate states that have identical local state for all agents.
 
@@ -69,18 +61,11 @@ def main(tla_path):
     def local_state_fn(state, agent):
         return pcal.get_local_state(state, agent, agent_map)
 
-    # Filter out terminal states and validate
-    filtered = {fp: s for fp, s in node_map.items() if not all_done(s)}
-    if len(filtered) < len(node_map):
-        print(f"States (excluding Done): {len(filtered)}")
-    else:
-        filtered = node_map
+    kripke.validate_state_transitions(G, node_map, agents, local_state_fn)
 
-    kripke.validate_state_transitions(G, filtered, agents, local_state_fn)
-
-    # Collapse states that differ only in pc
-    states = collapse_states(filtered, agents, local_state_fn)
-    if len(states) < len(filtered):
+    # Collapse states that differ only in pc (e.g. Skip→Done in CardGame)
+    states = collapse_states(node_map, agents, local_state_fn)
+    if len(states) < len(node_map):
         print(f"States (after collapsing): {len(states)}")
 
     eq_classes = kripke.build_equivalence_classes(states, agents, local_state_fn)
