@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generic epistemic analysis tool for PlusCal specs."""
+import re
 import subprocess
 import sys
 from collections import defaultdict
@@ -41,6 +42,13 @@ def state_label(state):
             continue
         parts.append(f"{k}={v}")
     return "\n".join(parts)
+
+
+_PALETTE = ["red", "blue", "darkgreen", "purple", "orange", "brown", "cyan", "magenta"]
+
+
+def _assign_colors(agents):
+    return {a: _PALETTE[i % len(_PALETTE)] for i, a in enumerate(agents)}
 
 
 def main(tla_path):
@@ -97,17 +105,52 @@ def main(tla_path):
             indist_G.nodes[fp]["style"] = "filled"
             indist_G.nodes[fp]["fillcolor"] = "yellow"
         indist_G.nodes[fp]["label"] = label
+        indist_G.nodes[fp]["penwidth"] = "3"
+        indist_G.nodes[fp]["fontsize"] = "24"
+    agent_colors = _assign_colors(agents)
     for u, v, data in indist_G.edges(data=True):
-        indist_G.edges[u, v]["label"] = ",".join(data["agents"])
+        agent_list = data["agents"]
+        indist_G.edges[u, v]["color"] = ":".join(agent_colors[a] for a in agent_list)
+        indist_G.edges[u, v]["penwidth"] = "3"
 
-    indist_G.graph["graph"] = {"overlap": "false"}
+    indist_G.graph["graph"] = {"overlap": "false", "splines": "curved",
+                                "outputorder": "edgesfirst", "K": "0.1"}
+    indist_G.graph["node"] = {"shape": "box", "style": "filled", "fillcolor": "white"}
 
     dot_path = spec_dir / f"{spec_name}-indistinguishability.dot"
     write_dot(indist_G, dot_path)
+
+    # Inject HTML legend node (write_dot doesn't support HTML labels)
+    cells = "".join(
+        f'<TD>&nbsp;</TD><TD BGCOLOR="{agent_colors[a]}" WIDTH="30" HEIGHT="6"></TD>'
+        f'<TD>&nbsp;<FONT POINT-SIZE="24">{a}</FONT>&nbsp;</TD>'
+        for a in agents
+    )
+    legend = (f'legend [shape=none, margin=0, '
+              f'label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="4">'
+              f'<TR>{cells}</TR></TABLE>>];\n')
+    dot_text = dot_path.read_text()
+    dot_path.write_text(dot_text.rstrip().rstrip("}") + legend + "}\n")
     print(f"\nWrote {dot_path}")
 
+    # Layout with neato + scalexy (compact), then scale positions up for readability
+    laid_out = subprocess.check_output(
+        ["neato", "-Goverlap=scalexy", "-Tdot", dot_path]).decode()
+
+    def _scale_pos(m):
+        parts = m.group(1).split()
+        scaled = [",".join(str(float(n) * 1.3) for n in p.split(",")) for p in parts]
+        return f'pos="{" ".join(scaled)}"'
+
+    laid_out = re.sub(r'pos="([^"]+)"', _scale_pos, laid_out)
+    laid_out = re.sub(
+        r'bb="([^"]+)"',
+        lambda m: 'bb="' + ",".join(str(float(x) * 1.3) for x in m.group(1).split(",")) + '"',
+        laid_out)
+    dot_path.write_text(laid_out)
+
     pdf_path = spec_dir / f"{spec_name}-indistinguishability.pdf"
-    subprocess.check_call(["neato", "-Tpdf", dot_path, "-o", pdf_path])
+    subprocess.check_call(["neato", "-n", "-Tpdf", dot_path, "-o", pdf_path])
     print(f"Wrote {pdf_path}")
 
 

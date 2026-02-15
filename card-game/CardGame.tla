@@ -34,9 +34,6 @@ end process;
 
 end algorithm; *)
 
-\* KNOWLEDGE_PROPERTY K(1, hand[1])
-\* KNOWLEDGE_PROPERTY K(2, hand[2])
-
 \* BEGIN TRANSLATION
 VARIABLES deal, pc
 
