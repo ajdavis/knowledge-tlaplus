@@ -1,4 +1,5 @@
 """Epistemic formula parser: parse formula strings into an AST."""
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -141,11 +142,35 @@ def parse(text: str):
     return _transformer.transform(tree)
 
 
-def extract_properties(tla_path: str | Path) -> list[str]:
-    """Extract KNOWLEDGE_PROPERTY formula strings from TLA+ file comments."""
+@dataclass
+class Property:
+    formula: str
+    alias: str | None = None
+
+
+def extract_properties(tla_path: str | Path) -> list[Property]:
+    """Extract KNOWLEDGE_PROPERTY annotations from TLA+ file comments.
+
+    Supports optional alias: ``\\* KNOWLEDGE_PROPERTY psi: K(0, ...)``
+    """
     props = []
     for line in Path(tla_path).read_text().splitlines():
         line = line.strip()
-        if line.startswith(r"\* KNOWLEDGE_PROPERTY "):
-            props.append(line.removeprefix(r"\* KNOWLEDGE_PROPERTY "))
+        if not line.startswith(r"\* KNOWLEDGE_PROPERTY "):
+            continue
+        text = line.removeprefix(r"\* KNOWLEDGE_PROPERTY ")
+        m = re.match(r"([a-zA-Z_]\w*)\s*:\s*", text)
+        if m:
+            props.append(Property(formula=text[m.end():], alias=m.group(1)))
+        else:
+            props.append(Property(formula=text))
     return props
+
+
+def extract_node_label(tla_path: str | Path) -> str | None:
+    """Extract NODE_LABEL template from TLA+ file comments."""
+    for line in Path(tla_path).read_text().splitlines():
+        line = line.strip()
+        if line.startswith(r"\* NODE_LABEL "):
+            return line.removeprefix(r"\* NODE_LABEL ")
+    return None

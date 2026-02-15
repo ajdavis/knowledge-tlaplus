@@ -34,6 +34,8 @@ end process;
 
 end algorithm; *)
 
+\* NODE_LABEL deal: {deal}\nhand: {hand}
+
 \* BEGIN TRANSLATION
 VARIABLES deal, pc
 

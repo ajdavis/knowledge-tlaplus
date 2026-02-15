@@ -92,6 +92,29 @@ def _iter_indexed(val):
             yield str(i + 1), v
 
 
+def build_label_context(state, processes, agent_map):
+    """Build a template context dict from a state.
+
+    All state variables except pc are included. Set-process local vars that are
+    lists are converted to dicts keyed by integer agent ID.
+    """
+    set_vars = {}
+    for proc in processes:
+        if proc.is_set:
+            for var in proc.local_vars:
+                set_vars[var] = [aid for aid, p in agent_map.items() if p is proc]
+    context = {}
+    for key, value in state.items():
+        if key == "pc":
+            continue
+        if key in set_vars and isinstance(value, list):
+            agents = set_vars[key]
+            context[key] = {int(a): value[i] for i, a in enumerate(agents)}
+        else:
+            context[key] = value
+    return context
+
+
 def _find_all(node, target_type):
     results = []
     if node.type == target_type:

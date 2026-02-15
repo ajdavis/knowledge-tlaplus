@@ -11,11 +11,10 @@
 - [X] CardGame uses process-local `hand` variable
 - [N/A] MuddyChildren: PlusCal can't model simultaneous transitions, stays as controller pattern
 
+- [X] Graph visualization: per-agent colored edges, legend, satisfying states highlighted,
+      compact neato layout with scalexy + position scaling
+- [X] `NODE_LABEL` annotation for custom node label formatting (Python f-string template)
+- [X] `KNOWLEDGE_PROPERTY` alias support (e.g., `psi: K(0, ...)`) displayed on satisfying nodes
+- [X] Set-process local vars displayed as agent-keyed dicts in node labels
+
 ## Next
-- [ ] Better graph visualization
-  - Per-agent colored edges (agent 0=red, 1=blue, 2=darkgreen)
-  - Legend subgraph showing agent-to-color mapping
-  - Satisfying states highlighted with formula symbol
-  - Layout engine selection (sfdp vs neato)
-  - These should eventually be configurable via TLA+ annotations
-- [ ] Annotate DOT output with property values

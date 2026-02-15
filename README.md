@@ -29,10 +29,11 @@ git config core.hooksPath .githooks
 
 ## Usage
 
-Annotate a `.tla` file with epistemic properties to check:
+Annotate a `.tla` file with epistemic properties and node label formatting:
 
 ```tla
-\* KNOWLEDGE_PROPERTY K(0, K(1, received[1]) \/ K(2, received[2]))
+\* NODE_LABEL acks: {acks}\nreceived: {received}\nsent: {sent}
+\* KNOWLEDGE_PROPERTY psi: K(0, K(1, received[1]) \/ K(2, received[2]))
 ```
 
 Run the generic analysis tool:
@@ -42,7 +43,7 @@ Run the generic analysis tool:
 ```
 
 This runs TLC, builds the Kripke structure, evaluates each property, and generates a DOT/PDF
-indistinguishability graph.
+indistinguishability graph with custom node labels and satisfying states highlighted.
 
 ## Architecture
 

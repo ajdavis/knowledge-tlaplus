@@ -34,14 +34,14 @@ def collapse_states(node_map, agents, local_state_fn):
     return {fps[0]: node_map[fps[0]] for fps in groups.values()}
 
 
-def state_label(state):
-    """Generic label: all state variables except pc."""
-    parts = []
-    for k, v in sorted(state.items()):
-        if k == "pc":
-            continue
-        parts.append(f"{k}={v}")
-    return "\n".join(parts)
+def state_label(state, template=None, processes=None, agent_map=None):
+    """Build node label from state. Uses template if provided, else generic dump."""
+    if template is None:
+        parts = [f"{k}={v}" for k, v in sorted(state.items()) if k != "pc"]
+        return "\n".join(parts)
+    context = pcal.build_label_context(state, processes, agent_map)
+    rendered = template.replace('\\n', '\n')
+    return eval(f'f"""{rendered}"""', context)  # noqa: S307
 
 
 _PALETTE = ["red", "blue", "darkgreen", "purple", "orange", "brown", "cyan", "magenta"]
@@ -56,6 +56,7 @@ def main(tla_path):
     spec_name = tla_path.stem
     spec_dir = tla_path.parent
     properties = formulas.extract_properties(tla_path)
+    node_label_template = formulas.extract_node_label(tla_path)
 
     tlc.run(tla_path)
     G, node_map, _ = tlc.parse_state_graph(spec_dir / spec_name)
@@ -89,19 +90,26 @@ def main(tla_path):
           f"{len(indist_G.edges())} edges")
 
     # Evaluate properties
-    sat_states = set()
-    for prop_text in properties:
-        ast = formulas.parse(prop_text)
+    label_kwargs = dict(template=node_label_template, processes=processes,
+                        agent_map=agent_map)
+    sat_states = {}  # fp -> set of aliases
+    for prop in properties:
+        ast = formulas.parse(prop.formula)
         result = kripke.eval_formula(ast, states, eq_classes)
-        sat_states |= result
         print(f"\n{ast} holds at {len(result)}/{len(states)} states:")
         for fp in sorted(result):
-            print(f"  {state_label(states[fp])}")
+            print(f"  {state_label(states[fp], **label_kwargs)}")
+            sat_states.setdefault(fp, set())
+            if prop.alias:
+                sat_states[fp].add(prop.alias)
 
     # Build DOT graph
     for fp in indist_G.nodes():
-        label = state_label(states[fp])
+        label = state_label(states[fp], **label_kwargs)
         if fp in sat_states:
+            aliases = sat_states[fp]
+            if aliases:
+                label += "\n" + ", ".join(sorted(aliases))
             indist_G.nodes[fp]["style"] = "filled"
             indist_G.nodes[fp]["fillcolor"] = "yellow"
         indist_G.nodes[fp]["label"] = label

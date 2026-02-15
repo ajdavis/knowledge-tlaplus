@@ -34,15 +34,35 @@ Global variables (like `network`) are not part of any agent's local state. Use t
 communication channels that agents read from and write to, updating their own local variables
 to record what they've learned.
 
-## Epistemic Property Annotations
+## Annotations
 
-Add `KNOWLEDGE_PROPERTY` comments to the `.tla` file (before `\* BEGIN TRANSLATION`):
+Add annotations as TLA+ comments (before `\* BEGIN TRANSLATION`).
+
+### Epistemic Properties
 
 ```tla
 \* KNOWLEDGE_PROPERTY K(0, K(1, received[1]) \/ K(2, received[2]))
 ```
 
-Then run `analyze.py` to evaluate them:
+Properties can have an alias that is displayed on satisfying nodes in the graph:
+
+```tla
+\* KNOWLEDGE_PROPERTY psi: K(0, K(1, received[1]) \/ K(2, received[2]))
+```
+
+### Node Labels
+
+Custom node label formatting using Python f-string syntax:
+
+```tla
+\* NODE_LABEL acks: {acks}\nreceived: {received}\nsent: {sent}
+```
+
+Template variables are state variables (excluding `pc`). Set-process local vars are
+automatically converted from lists to agent-keyed dicts (e.g., `{1: True, 2: False}`).
+Use `\n` for line breaks. Arbitrary Python expressions are supported inside `{}`.
+
+### Running
 
 ```bash
 .venv/bin/python3 analyze.py raft/SimpleRaft.tla
