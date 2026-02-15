@@ -1,5 +1,7 @@
 """Epistemic formula parser: parse formula strings into an AST."""
 from dataclasses import dataclass
+from pathlib import Path
+
 from lark import Lark, Transformer, v_args
 
 GRAMMAR = r"""
@@ -137,3 +139,13 @@ def parse(text: str):
     """Parse an epistemic formula string into an AST."""
     tree = parser.parse(text)
     return _transformer.transform(tree)
+
+
+def extract_properties(tla_path: str | Path) -> list[str]:
+    """Extract KNOWLEDGE_PROPERTY formula strings from TLA+ file comments."""
+    props = []
+    for line in Path(tla_path).read_text().splitlines():
+        line = line.strip()
+        if line.startswith(r"\* KNOWLEDGE_PROPERTY "):
+            props.append(line.removeprefix(r"\* KNOWLEDGE_PROPERTY "))
+    return props

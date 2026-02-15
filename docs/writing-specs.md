@@ -28,20 +28,25 @@ begin ...
 - Agent 1 (follower, set) observes: `(received[1],)`
 - Agent 2 (follower, set) observes: `(received[2],)`
 
-The analysis script derives this automatically:
-
-```python
-processes = pcal.parse_processes("SimpleRaft.tla")
-agents = pcal.get_agents(node_map)
-agent_map = pcal.map_agents_to_processes(processes, node_map)
-
-def local_state_fn(state, agent):
-    return pcal.get_local_state(state, agent, agent_map)
-```
+`analyze.py` derives this automatically from the PlusCal source.
 
 Global variables (like `network`) are not part of any agent's local state. Use them for
 communication channels that agents read from and write to, updating their own local variables
 to record what they've learned.
+
+## Epistemic Property Annotations
+
+Add `KNOWLEDGE_PROPERTY` comments to the `.tla` file (before `\* BEGIN TRANSLATION`):
+
+```tla
+\* KNOWLEDGE_PROPERTY K(0, K(1, received[1]) \/ K(2, received[2]))
+```
+
+Then run `analyze.py` to evaluate them:
+
+```bash
+.venv/bin/python3 analyze.py raft/SimpleRaft.tla
+```
 
 ## Every Atomic Step Must Change a Process-Local Variable
 
@@ -53,10 +58,12 @@ If a labeled step changes only `pc` (or only global variables) without changing 
 variable, the state graph will contain distinct states that look identical to every agent. This
 produces duplicate nodes in the indistinguishability graph and corrupts the epistemic analysis.
 
-**Rule: every labeled step must assign to at least one process-local variable.**
+**Rule: every labeled step must assign to at least one process-local variable.** The exception is
+the final step that transitions a process to `Done` — PlusCal termination steps that don't change
+local state are allowed.
 
 The `validate_state_transitions()` function in `lib/kripke.py` checks this and raises
-`AssertionError` if any transition violates it.
+`AssertionError` if any non-termination transition violates it.
 
 ### Common Violations and Fixes
 

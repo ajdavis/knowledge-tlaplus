@@ -12,6 +12,9 @@ def validate_state_transitions(G: nx.DiGraph, node_map: dict, agents: list[str],
     changes pc without changing any agent-visible variable, the
     indistinguishability graph will have multiple nodes with the same label.
     Merge such steps with adjacent ones so each atomic step is observable.
+
+    Transitions where a process goes to Done are allowed — PlusCal termination
+    steps often don't change agent-visible state.
     """
     for u, v in G.edges():
         if u == v or u not in node_map or v not in node_map:
@@ -20,6 +23,8 @@ def validate_state_transitions(G: nx.DiGraph, node_map: dict, agents: list[str],
         if all(local_state_fn(su, a) == local_state_fn(sv, a) for a in agents):
             pc_u = su.get("pc", {})
             pc_v = sv.get("pc", {})
+            if _any_became_done(pc_u, pc_v):
+                continue
             raise AssertionError(
                 f"Transition changes no agent's local state.\n"
                 f"  pc before: {pc_u}\n"
@@ -149,6 +154,13 @@ def build_indistinguishability_graph(
         G.add_edge(fp1, fp2, agents=agents_list)
 
     return G, agents
+
+
+def _any_became_done(pc_u, pc_v):
+    """True if any process transitioned to Done."""
+    if isinstance(pc_u, dict):
+        return any(pc_u[k] != "Done" and pc_v[k] == "Done" for k in pc_u)
+    return any(u != "Done" and v == "Done" for u, v in zip(pc_u, pc_v))
 
 
 def _to_hashable(val):

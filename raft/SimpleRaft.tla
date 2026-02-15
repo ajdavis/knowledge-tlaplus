@@ -54,6 +54,8 @@ end process;
 
 end algorithm; *)
 
+\* KNOWLEDGE_PROPERTY K(0, K(1, received[1]) \/ K(2, received[2]))
+
 \* BEGIN TRANSLATION
 VARIABLES network, pc, sent, acks, received
 

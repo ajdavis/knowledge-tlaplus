@@ -27,18 +27,38 @@ A pre-commit hook runs tests and all analysis scripts. Enable it with:
 git config core.hooksPath .githooks
 ```
 
+## Usage
+
+Annotate a `.tla` file with epistemic properties to check:
+
+```tla
+\* KNOWLEDGE_PROPERTY K(0, K(1, received[1]) \/ K(2, received[2]))
+```
+
+Run the generic analysis tool:
+
+```bash
+.venv/bin/python3 analyze.py raft/SimpleRaft.tla
+```
+
+This runs TLC, builds the Kripke structure, evaluates each property, and generates a DOT/PDF
+indistinguishability graph.
+
 ## Architecture
 
 1. **TLA+/PlusCal spec** — each PlusCal process is an agent; process-local variables define what
    the agent can observe. Global variables (e.g. a network) are used for communication but are not
    part of any agent's local state.
-2. **`lib/pcal.py`** parses PlusCal to extract the process-to-variable mapping, then maps TLC
+2. **`analyze.py`** — generic analysis tool. Extracts `KNOWLEDGE_PROPERTY` annotations from the
+   `.tla` file, runs TLC, builds the Kripke structure, evaluates formulas, and generates
+   visualizations.
+3. **`lib/pcal.py`** parses PlusCal to extract the process-to-variable mapping, then maps TLC
    agent IDs to processes via initial `pc` labels.
-3. **`lib/kripke.py`** builds indistinguishability equivalence classes and the Kripke structure
+4. **`lib/kripke.py`** builds indistinguishability equivalence classes and the Kripke structure
    from the agent observation model.
-4. **`lib/formulas.py`** parses epistemic formulas (K, E, C, boolean connectives) and evaluates
+5. **`lib/formulas.py`** parses epistemic formulas (K, E, C, boolean connectives) and evaluates
    them on the Kripke structure.
-5. **`lib/tlc.py`** runs TLC and parses the JSON state graph output.
+6. **`lib/tlc.py`** runs TLC and parses the JSON state graph output.
 
 ## Epistemic Semantics
 

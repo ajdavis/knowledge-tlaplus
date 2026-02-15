@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
 .venv/bin/pytest tests/ -q
-.venv/bin/python3 card-game/analyze-card-game.py
+.venv/bin/python3 analyze.py card-game/CardGame.tla
 .venv/bin/python3 muddy-children/muddy-children-knowledge-analysis.py
-.venv/bin/python3 raft/simple-raft-knowledge-analysis.py
+.venv/bin/python3 analyze.py raft/SimpleRaft.tla
