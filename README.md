@@ -29,11 +29,13 @@ git config core.hooksPath .githooks
 
 ## Usage
 
-Annotate a `.tla` file with epistemic properties and node label formatting:
+Annotate a `.tla` file with queries (exploratory) and properties (temporal assertions):
 
 ```tla
 \* NODE_LABEL acks: {acks}\nreceived: {received}\nsent: {sent}
-\* KNOWLEDGE_PROPERTY psi: K(0, K(1, received[1]) \/ K(2, received[2]))
+\* KNOWLEDGE_QUERY psi: K(0, K(1, received[1]) \/ K(2, received[2]))
+\* KNOWLEDGE_PROPERTY <>K(0, K(1, received[1]) \/ K(2, received[2]))
+\* KNOWLEDGE_PROPERTY sent[1] ~> K(1, received[1])
 ```
 
 Run the generic analysis tool:
@@ -42,8 +44,8 @@ Run the generic analysis tool:
 .venv/bin/python3 analyze.py raft/SimpleRaft.tla
 ```
 
-This runs TLC, builds the Kripke structure, evaluates each property, and generates a DOT/PDF
-indistinguishability graph with custom node labels and satisfying states highlighted.
+This runs TLC, builds the Kripke structure, evaluates queries at each state, checks temporal
+properties (exiting non-zero on failure), and generates a DOT/PDF indistinguishability graph.
 
 ## Architecture
 
@@ -72,8 +74,8 @@ indistinguishability graph with custom node labels and satisfying states highlig
 
 ### Temporal Operators
 
-Temporal operators can be used in `KNOWLEDGE_PROPERTY` annotations to check properties across the
-whole state graph (not just individual states):
+Temporal operators are used in `KNOWLEDGE_PROPERTY` annotations to assert properties across the
+whole state graph. The tool exits non-zero if any property fails.
 
 - **[]φ**: invariant — φ holds at every reachable state
 - **<>φ**: liveness — on every execution path, φ eventually holds

@@ -38,16 +38,29 @@ to record what they've learned.
 
 Add annotations as TLA+ comments (before `\* BEGIN TRANSLATION`).
 
-### Epistemic Properties
+### Knowledge Queries (Exploratory)
+
+Evaluate an epistemic formula at each state and show which states satisfy it:
 
 ```tla
-\* KNOWLEDGE_PROPERTY K(0, K(1, received[1]) \/ K(2, received[2]))
+\* KNOWLEDGE_QUERY K(0, K(1, received[1]) \/ K(2, received[2]))
 ```
 
-Properties can have an alias that is displayed on satisfying nodes in the graph:
+Queries can have an alias that is displayed on satisfying nodes in the graph:
 
 ```tla
-\* KNOWLEDGE_PROPERTY psi: K(0, K(1, received[1]) \/ K(2, received[2]))
+\* KNOWLEDGE_QUERY psi: K(0, K(1, received[1]) \/ K(2, received[2]))
+```
+
+### Knowledge Properties (Temporal Assertions)
+
+Assert that a temporal epistemic property holds across the whole spec. The tool reports
+pass/fail and exits non-zero on failure. Must use a temporal operator (`[]`, `<>`, or `~>`):
+
+```tla
+\* KNOWLEDGE_PROPERTY [](K(0, w[0]) \/ K(0, ~w[0]))
+\* KNOWLEDGE_PROPERTY <>K(0, v[0])
+\* KNOWLEDGE_PROPERTY sent[1] ~> K(1, received[1])
 ```
 
 ### Node Labels

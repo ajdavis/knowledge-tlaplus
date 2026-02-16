@@ -60,9 +60,8 @@ def _assign_colors(agents):
     return {a: _PALETTE[i % len(_PALETTE)] for i, a in enumerate(agents)}
 
 
-def _eval_property(ast, prop, states, eq_classes, collapsed_G, all_fps,
-                   sat_states, label_kwargs):
-    """Evaluate a single property (epistemic or temporal) and print results."""
+def _check_property(ast, states, eq_classes, collapsed_G, all_fps, label_kwargs):
+    """Check a temporal property. Returns True if it passes."""
     match ast:
         case formulas.Always(body):
             result = kripke.eval_formula(body, states, eq_classes)
@@ -73,6 +72,7 @@ def _eval_property(ast, prop, states, eq_classes, collapsed_G, all_fps,
                 print(f"\n{ast}: FAIL ({len(violations)} violating states):")
                 for fp in sorted(violations):
                     print(f"  {state_label(states[fp], **label_kwargs)}")
+            return passed
         case formulas.Eventually(body):
             result = kripke.eval_formula(body, states, eq_classes)
             passed, violations = kripke.check_eventually(collapsed_G, result)
@@ -83,6 +83,7 @@ def _eval_property(ast, prop, states, eq_classes, collapsed_G, all_fps,
                       f"can avoid {body}):")
                 for fp in sorted(violations):
                     print(f"  {state_label(states[fp], **label_kwargs)}")
+            return passed
         case formulas.LeadsTo(left, right):
             psi = kripke.eval_formula(left, states, eq_classes)
             phi = kripke.eval_formula(right, states, eq_classes)
@@ -94,20 +95,17 @@ def _eval_property(ast, prop, states, eq_classes, collapsed_G, all_fps,
                       f"{left} holds but {right} is not inevitable):")
                 for fp in sorted(violations):
                     print(f"  {state_label(states[fp], **label_kwargs)}")
+            return passed
         case _:
-            result = kripke.eval_formula(ast, states, eq_classes)
-            print(f"\n{ast} holds at {len(result)}/{len(all_fps)} states:")
-            for fp in sorted(result):
-                print(f"  {state_label(states[fp], **label_kwargs)}")
-                sat_states.setdefault(fp, set())
-                if prop.alias:
-                    sat_states[fp].add(prop.alias)
+            raise ValueError(f"KNOWLEDGE_PROPERTY requires a temporal operator "
+                             f"([], <>, ~>), got: {ast}")
 
 
 def main(tla_path):
     tla_path = Path(tla_path)
     spec_name = tla_path.stem
     spec_dir = tla_path.parent
+    queries = formulas.extract_queries(tla_path)
     properties = formulas.extract_properties(tla_path)
     node_label_template = formulas.extract_node_label(tla_path)
 
@@ -138,15 +136,29 @@ def main(tla_path):
     # Build collapsed directed graph for temporal checks
     collapsed_G = collapse_graph(G, collapse_map)
 
-    # Evaluate properties
     label_kwargs = dict(template=node_label_template, processes=processes,
                         agent_map=agent_map)
     all_fps = set(states.keys())
+
+    # Evaluate queries (exploratory, per-state)
     sat_states = {}  # fp -> set of aliases
+    for q in queries:
+        ast = formulas.parse(q.formula)
+        result = kripke.eval_formula(ast, states, eq_classes)
+        print(f"\n{ast} holds at {len(result)}/{len(all_fps)} states:")
+        for fp in sorted(result):
+            print(f"  {state_label(states[fp], **label_kwargs)}")
+            sat_states.setdefault(fp, set())
+            if q.alias:
+                sat_states[fp].add(q.alias)
+
+    # Check properties (temporal assertions)
+    all_passed = True
     for prop in properties:
         ast = formulas.parse(prop.formula)
-        _eval_property(ast, prop, states, eq_classes, collapsed_G, all_fps,
-                       sat_states, label_kwargs)
+        if not _check_property(ast, states, eq_classes, collapsed_G, all_fps,
+                               label_kwargs):
+            all_passed = False
 
     # Build DOT graph
     for fp in indist_G.nodes():
@@ -205,6 +217,9 @@ def main(tla_path):
     pdf_path = spec_dir / f"{spec_name}-indistinguishability.pdf"
     subprocess.check_call(["neato", "-n", "-Tpdf", dot_path, "-o", pdf_path])
     print(f"Wrote {pdf_path}")
+
+    if not all_passed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

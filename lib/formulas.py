@@ -194,23 +194,35 @@ class Property:
     alias: str | None = None
 
 
-def extract_properties(tla_path: str | Path) -> list[Property]:
-    """Extract KNOWLEDGE_PROPERTY annotations from TLA+ file comments.
-
-    Supports optional alias: ``\\* KNOWLEDGE_PROPERTY psi: K(0, ...)``
-    """
+def _extract_annotations(tla_path: str | Path, prefix: str) -> list[Property]:
     props = []
     for line in Path(tla_path).read_text().splitlines():
         line = line.strip()
-        if not line.startswith(r"\* KNOWLEDGE_PROPERTY "):
+        if not line.startswith(prefix):
             continue
-        text = line.removeprefix(r"\* KNOWLEDGE_PROPERTY ")
+        text = line.removeprefix(prefix)
         m = re.match(r"([a-zA-Z_]\w*)\s*:\s*", text)
         if m:
             props.append(Property(formula=text[m.end():], alias=m.group(1)))
         else:
             props.append(Property(formula=text))
     return props
+
+
+def extract_queries(tla_path: str | Path) -> list[Property]:
+    r"""Extract ``\* KNOWLEDGE_QUERY`` annotations (per-state evaluation).
+
+    Supports optional alias: ``\* KNOWLEDGE_QUERY psi: K(0, ...)``
+    """
+    return _extract_annotations(tla_path, r"\* KNOWLEDGE_QUERY ")
+
+
+def extract_properties(tla_path: str | Path) -> list[Property]:
+    r"""Extract ``\* KNOWLEDGE_PROPERTY`` annotations (temporal assertions).
+
+    Must use a temporal operator: ``\* KNOWLEDGE_PROPERTY <>K(0, v[0])``
+    """
+    return _extract_annotations(tla_path, r"\* KNOWLEDGE_PROPERTY ")
 
 
 def extract_node_label(tla_path: str | Path) -> str | None:

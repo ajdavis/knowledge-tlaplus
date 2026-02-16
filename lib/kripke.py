@@ -151,6 +151,7 @@ def check_always(sat_states: set, all_states: set) -> tuple[bool, set]:
 def _compute_af(G: nx.DiGraph, phi_states: set) -> set:
     """Compute AF φ: states from which φ is inevitable on all paths.
 
+    AF stands for "All paths, Finally" in CTL (computation tree logic).
     A state is in AF iff it satisfies φ, or it has successors and all
     successors are in AF. Terminal states not in φ are excluded.
     """
