@@ -6,6 +6,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+import networkx as nx
 from networkx.drawing.nx_pydot import write_dot
 
 from lib import tlc, kripke, formulas, pcal
@@ -18,12 +19,28 @@ def collapse_states(node_map, agents, local_state_fn):
     PlusCal termination steps (e.g. Skip->Done) create states with different pc
     but identical agent-observable state. Keep one representative per unique
     local-state tuple.
+
+    Returns (collapsed_node_map, collapse_map) where collapse_map maps every
+    original fingerprint to its collapsed representative.
     """
     groups = defaultdict(list)
     for fp, state in node_map.items():
         key = tuple(_to_hashable(local_state_fn(state, a)) for a in agents)
         groups[key].append(fp)
-    return {fps[0]: node_map[fps[0]] for fps in groups.values()}
+    collapsed = {fps[0]: node_map[fps[0]] for fps in groups.values()}
+    collapse_map = {fp: fps[0] for fps in groups.values() for fp in fps}
+    return collapsed, collapse_map
+
+
+def collapse_graph(G, collapse_map):
+    """Project a directed graph through a collapse mapping."""
+    CG = nx.DiGraph()
+    CG.add_nodes_from(set(collapse_map.values()))
+    for u, v in G.edges():
+        cu, cv = collapse_map.get(u), collapse_map.get(v)
+        if cu is not None and cv is not None and cu != cv:
+            CG.add_edge(cu, cv)
+    return CG
 
 
 def state_label(state, template=None, processes=None, agent_map=None):
@@ -41,6 +58,50 @@ _PALETTE = ["red", "blue", "darkgreen", "purple", "orange", "brown", "cyan", "ma
 
 def _assign_colors(agents):
     return {a: _PALETTE[i % len(_PALETTE)] for i, a in enumerate(agents)}
+
+
+def _eval_property(ast, prop, states, eq_classes, collapsed_G, all_fps,
+                   sat_states, label_kwargs):
+    """Evaluate a single property (epistemic or temporal) and print results."""
+    match ast:
+        case formulas.Always(body):
+            result = kripke.eval_formula(body, states, eq_classes)
+            passed, violations = kripke.check_always(result, all_fps)
+            if passed:
+                print(f"\n{ast}: PASS (holds at all {len(all_fps)} states)")
+            else:
+                print(f"\n{ast}: FAIL ({len(violations)} violating states):")
+                for fp in sorted(violations):
+                    print(f"  {state_label(states[fp], **label_kwargs)}")
+        case formulas.Eventually(body):
+            result = kripke.eval_formula(body, states, eq_classes)
+            passed, violations = kripke.check_eventually(collapsed_G, result)
+            if passed:
+                print(f"\n{ast}: PASS")
+            else:
+                print(f"\n{ast}: FAIL ({len(violations)} initial states "
+                      f"can avoid {body}):")
+                for fp in sorted(violations):
+                    print(f"  {state_label(states[fp], **label_kwargs)}")
+        case formulas.LeadsTo(left, right):
+            psi = kripke.eval_formula(left, states, eq_classes)
+            phi = kripke.eval_formula(right, states, eq_classes)
+            passed, violations = kripke.check_leads_to(collapsed_G, psi, phi)
+            if passed:
+                print(f"\n{ast}: PASS")
+            else:
+                print(f"\n{ast}: FAIL ({len(violations)} states where "
+                      f"{left} holds but {right} is not inevitable):")
+                for fp in sorted(violations):
+                    print(f"  {state_label(states[fp], **label_kwargs)}")
+        case _:
+            result = kripke.eval_formula(ast, states, eq_classes)
+            print(f"\n{ast} holds at {len(result)}/{len(all_fps)} states:")
+            for fp in sorted(result):
+                print(f"  {state_label(states[fp], **label_kwargs)}")
+                sat_states.setdefault(fp, set())
+                if prop.alias:
+                    sat_states[fp].add(prop.alias)
 
 
 def main(tla_path):
@@ -64,7 +125,7 @@ def main(tla_path):
     kripke.validate_state_transitions(G, node_map, agents, local_state_fn)
 
     # Collapse states that differ only in pc (e.g. Skip→Done in CardGame)
-    states = collapse_states(node_map, agents, local_state_fn)
+    states, collapse_map = collapse_states(node_map, agents, local_state_fn)
     if len(states) < len(node_map):
         print(f"States (after collapsing): {len(states)}")
 
@@ -74,19 +135,18 @@ def main(tla_path):
     print(f"Indistinguishability graph: {len(indist_G.nodes())} nodes, "
           f"{len(indist_G.edges())} edges")
 
+    # Build collapsed directed graph for temporal checks
+    collapsed_G = collapse_graph(G, collapse_map)
+
     # Evaluate properties
     label_kwargs = dict(template=node_label_template, processes=processes,
                         agent_map=agent_map)
+    all_fps = set(states.keys())
     sat_states = {}  # fp -> set of aliases
     for prop in properties:
         ast = formulas.parse(prop.formula)
-        result = kripke.eval_formula(ast, states, eq_classes)
-        print(f"\n{ast} holds at {len(result)}/{len(states)} states:")
-        for fp in sorted(result):
-            print(f"  {state_label(states[fp], **label_kwargs)}")
-            sat_states.setdefault(fp, set())
-            if prop.alias:
-                sat_states[fp].add(prop.alias)
+        _eval_property(ast, prop, states, eq_classes, collapsed_G, all_fps,
+                       sat_states, label_kwargs)
 
     # Build DOT graph
     for fp in indist_G.nodes():

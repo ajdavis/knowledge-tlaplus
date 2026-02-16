@@ -6,6 +6,11 @@ from pathlib import Path
 from lark import Lark, Transformer, v_args
 
 GRAMMAR = r"""
+    ?top: _BOX expr -> always
+        | _DIAMOND expr -> eventually
+        | expr _LEADSTO expr -> leads_to
+        | expr
+
     ?expr: or_expr
 
     ?or_expr: and_expr (_OR and_expr)*
@@ -29,13 +34,16 @@ GRAMMAR = r"""
     _OR: "\u2228" | "\\/"
     _AND: "\u2227" | "/\\"
     _NOT: "\u00ac" | "~"
+    _BOX: "[]"
+    _DIAMOND: "<>"
+    _LEADSTO: "~>"
 
     %import common.INT
     %import common.WS
     %ignore WS
 """
 
-parser = Lark(GRAMMAR, start="expr", parser="earley")
+parser = Lark(GRAMMAR, start="top", parser="earley")
 
 
 # AST nodes
@@ -64,6 +72,25 @@ class D:
     body: object
     def __str__(self):
         return f"D({self.body})"
+
+@dataclass(frozen=True)
+class Always:
+    body: object
+    def __str__(self):
+        return f"[]{self.body}"
+
+@dataclass(frozen=True)
+class Eventually:
+    body: object
+    def __str__(self):
+        return f"<>{self.body}"
+
+@dataclass(frozen=True)
+class LeadsTo:
+    left: object
+    right: object
+    def __str__(self):
+        return f"{self.left} ~> {self.right}"
 
 @dataclass(frozen=True)
 class Var:
@@ -114,6 +141,15 @@ class _ASTTransformer(Transformer):
 
     def d(self, body):
         return D(body)
+
+    def always(self, body):
+        return Always(body)
+
+    def eventually(self, body):
+        return Eventually(body)
+
+    def leads_to(self, left, right):
+        return LeadsTo(left, right)
 
     def var(self, name):
         return Var(str(name))

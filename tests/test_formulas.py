@@ -9,7 +9,7 @@ from lark.exceptions import UnexpectedInput
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.formulas import (
-    And, BoolLit, C, D, E, K, Not, Or, Var, parse,
+    Always, And, BoolLit, C, D, E, Eventually, K, LeadsTo, Not, Or, Var, parse,
 )
 
 # -- Atoms --
@@ -42,6 +42,21 @@ def test_c():
 
 def test_d():
     assert parse("D(x)") == D(Var("x"))
+
+# -- Temporal operators --
+
+def test_always():
+    assert parse("[]K(0, x)") == Always(K(0, Var("x")))
+
+def test_eventually():
+    assert parse("<>K(0, x)") == Eventually(K(0, Var("x")))
+
+def test_leads_to():
+    assert parse("x ~> K(0, y)") == LeadsTo(Var("x"), K(0, Var("y")))
+
+def test_leads_to_complex():
+    result = parse(r"w[0] ~> K(0, v[0] \/ v[1])")
+    assert result == LeadsTo(Var("w", 0), K(0, Or(Var("v", 0), Var("v", 1))))
 
 # -- Boolean operators (ASCII and Unicode) --
 
@@ -98,6 +113,9 @@ def test_raft_formula():
     ("E(x)", "E(x)"),
     ("C(x)", "C(x)"),
     ("D(x)", "D(x)"),
+    ("[]x", "[]x"),
+    ("<>x", "<>x"),
+    ("x ~> y", "x ~> y"),
     ("~x", "~x"),
     (r"x \/ y", r"(x \/ y)"),
     (r"x /\ y", r"(x /\ y)"),
@@ -147,7 +165,13 @@ ast_strategy = st.recursive(
     max_leaves=10,
 )
 
-@given(expr=ast_strategy)
+temporal_strategy = st.one_of(
+    ast_strategy.map(Always),
+    ast_strategy.map(Eventually),
+    st.tuples(ast_strategy, ast_strategy).map(lambda t: LeadsTo(t[0], t[1])),
+)
+
+@given(expr=st.one_of(ast_strategy, temporal_strategy))
 @settings(max_examples=200)
 def test_roundtrip_property(expr):
     assert parse(str(expr)) == expr

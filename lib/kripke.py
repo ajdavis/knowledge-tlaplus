@@ -142,6 +142,52 @@ def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]]) ->
                 current = result
 
 
+def check_always(sat_states: set, all_states: set) -> tuple[bool, set]:
+    """Check []φ: φ holds at every state. Returns (passed, violation_states)."""
+    violations = all_states - sat_states
+    return (not violations, violations)
+
+
+def _compute_af(G: nx.DiGraph, phi_states: set) -> set:
+    """Compute AF φ: states from which φ is inevitable on all paths.
+
+    A state is in AF iff it satisfies φ, or it has successors and all
+    successors are in AF. Terminal states not in φ are excluded.
+    """
+    af = phi_states & set(G.nodes())
+    changed = True
+    while changed:
+        changed = False
+        for s in set(G.nodes()) - af:
+            succs = set(G.successors(s))
+            if succs and succs.issubset(af):
+                af.add(s)
+                changed = True
+    return af
+
+
+def check_eventually(G: nx.DiGraph, sat_states: set) -> tuple[bool, set]:
+    """Check <>φ: on all paths from initial states, φ eventually holds.
+
+    Returns (passed, violating_initial_states).
+    """
+    af = _compute_af(G, sat_states)
+    initial = {s for s in G.nodes() if G.in_degree(s) == 0}
+    violations = initial - af
+    return (not violations, violations)
+
+
+def check_leads_to(G: nx.DiGraph, psi_states: set,
+                   phi_states: set) -> tuple[bool, set]:
+    """Check ψ ~> φ: from every ψ-state, φ eventually holds on all paths.
+
+    Returns (passed, violating_psi_states).
+    """
+    af = _compute_af(G, phi_states)
+    violations = (psi_states & set(G.nodes())) - af
+    return (not violations, violations)
+
+
 def _lookup(val, index: int):
     """Look up an index in a dict-or-list state variable.
 

@@ -57,8 +57,8 @@ indistinguishability graph with custom node labels and satisfying states highlig
    agent IDs to processes via initial `pc` labels.
 4. **`lib/kripke.py`** builds indistinguishability equivalence classes and the Kripke structure
    from the agent observation model.
-5. **`lib/formulas.py`** parses epistemic formulas (K, E, C, D, boolean connectives) and evaluates
-   them on the Kripke structure.
+5. **`lib/formulas.py`** parses epistemic formulas (K, E, C, D, boolean connectives) and temporal
+   operators ([], <>, ~>), and evaluates them on the Kripke structure.
 6. **`lib/tlc.py`** runs TLC and parses the JSON state graph output.
 
 ## Epistemic Semantics
@@ -69,6 +69,21 @@ indistinguishability graph with custom node labels and satisfying states highlig
   (distributed knowledge — what the group would know if they pooled their information)
 - **C(φ)**: fixed point — φ holds at all states reachable via indistinguishability edges
   (common knowledge)
+
+### Temporal Operators
+
+Temporal operators can be used in `KNOWLEDGE_PROPERTY` annotations to check properties across the
+whole state graph (not just individual states):
+
+- **[]φ**: invariant — φ holds at every reachable state
+- **<>φ**: liveness — on every execution path, φ eventually holds
+- **ψ ~> φ**: leads-to — whenever ψ holds, φ eventually follows on all paths
+
+```tla
+\* KNOWLEDGE_PROPERTY [](K(0, w[0]) \/ K(0, ~w[0]))
+\* KNOWLEDGE_PROPERTY <>K(0, v[0])
+\* KNOWLEDGE_PROPERTY sent[1] ~> K(1, received[1])
+```
 
 Two states are indistinguishable for agent i when the agent's process-local variables have the
 same values in both states. See [docs/writing-specs.md](docs/writing-specs.md) for details on

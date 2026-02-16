@@ -39,22 +39,28 @@
     a state where the other's v is false). This demonstrates the gap between distributed and
     individual knowledge. Also test that D(φ) ⊇ E(φ) for several formulas.
 
-- [ ] Temporal epistemic properties — check knowledge properties across the whole spec
+- [X] Temporal epistemic properties — check knowledge properties across the whole spec
   - Currently we evaluate `K(i, φ)` at individual states. TLA+ checks safety and liveness
     properties across all behaviors of a spec. Combine these ideas to check epistemic temporal
     properties on the TLC state graph.
+  - Use the existing `KNOWLEDGE_PROPERTY` annotation with temporal operators in the formula
+    language. The temporal operator at the top of the AST determines the check type:
+    - `[]φ` → invariant check
+    - `<>φ` → liveness check
+    - `ψ ~> φ` → leads-to check
+    - bare `φ` → evaluate at individual states (current behavior)
+  - Add `Always`, `Eventually`, `LeadsTo` AST nodes and parser rules to `lib/formulas.py`.
+    Handle them in `analyze.py` (not `eval_formula`, since they operate on the state graph
+    rather than individual states).
 
-  - [ ] Invariant: `[]K(i, φ)` — knowledge property holds at every reachable state
-    - Simplest form: check whether sat_states == all states. If so, the property is an
-      invariant. Report this in `analyze.py` output (e.g., "INVARIANT: holds at all states").
-    - More useful: allow `KNOWLEDGE_INVARIANT` annotation in `.tla` files. Unlike
-      `KNOWLEDGE_PROPERTY` (which just evaluates), an invariant is *checked* and the tool
-      reports pass/fail with counterexample states where it doesn't hold.
-    - Also add a `KNOWLEDGE_INVARIANT` test to `tests/test_kripke.py`. In KripkeTest.tla,
-      `K(0, w[0]) \/ K(0, ~w[0])` — agent 0 always knows w[0]'s value — should be an invariant
-      (holds at all 4 states). `K(0, v[0])` is NOT an invariant (fails at `init` and `act1`).
+  - [X] Invariant: `[]K(i, φ)` — knowledge property holds at every reachable state
+    - Check whether sat_states == all states. Report pass/fail with counterexample states.
+    - Annotation: `\* KNOWLEDGE_PROPERTY [](K(0, w[0]) \/ K(0, ~w[0]))`
+    - Test in `tests/test_kripke.py` using KripkeTest.tla:
+      `[](K(0, w[0]) \/ K(0, ~w[0]))` — agent 0 always knows w[0]'s value — should pass
+      (holds at all 4 states). `[]K(0, v[0])` should fail (fails at `init` and `act1`).
 
-  - [ ] Liveness: `<>K(i, φ)` — on every execution path, the property eventually holds
+  - [X] Liveness: `<>K(i, φ)` — on every execution path, the property eventually holds
     - Check that every maximal path through the TLC state graph eventually reaches a state
       satisfying the knowledge formula. Equivalently: no cycle in the state graph avoids all
       satisfying states, and no path from an initial state reaches a dead end without passing
@@ -64,14 +70,14 @@
       state is in this set, liveness fails. Use SCC analysis: if any SCC in the graph contains
       no satisfying state and has no outgoing edge to a satisfying state, liveness fails for
       states in that SCC.
-    - Annotation: `KNOWLEDGE_LIVENESS` in `.tla` files. Report pass/fail.
-    - Test: in KripkeTest.tla (or a new spec), `<>K(0, v[0])` should be a liveness property
-      because agent 0 eventually acts and learns v[0]=T.
+    - Annotation: `\* KNOWLEDGE_PROPERTY <>K(0, v[0])`
+    - Test: in KripkeTest.tla (or a new spec), `<>K(0, v[0])` should pass because agent 0
+      eventually acts and learns v[0]=T.
 
-  - [ ] Leads-to: `ψ ~> K(i, φ)` — whenever ψ holds, K(i, φ) eventually follows
+  - [X] Leads-to: `ψ ~> K(i, φ)` — whenever ψ holds, K(i, φ) eventually follows
     - Standard TLA+ leads-to: for every state satisfying ψ, every maximal path from that state
       eventually reaches a state satisfying K(i, φ).
-    - Annotation: `KNOWLEDGE_LEADSTO ψ ~> K(i, φ)` in `.tla` files.
+    - Annotation: `\* KNOWLEDGE_PROPERTY w[0] ~> K(0, v[0])`
     - This captures "communication causes knowledge gain": e.g., in SimpleRaft, after a follower
       sends an ack (ψ), the leader eventually knows the follower received (K(0, received[f])).
 

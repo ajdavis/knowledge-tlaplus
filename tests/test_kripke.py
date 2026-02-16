@@ -82,12 +82,11 @@ def model():
     pdf_path = THIS_DIR / "KripkeTest-indistinguishability.pdf"
     subprocess.check_call(["neato", "-Tpdf", dot_path, "-o", pdf_path])
 
-    return node_map, eq_classes, names
+    return node_map, eq_classes, names, G
 
 
 def _eval(expr_str, model):
-    node_map, eq_classes, _ = model
-    return kripke.eval_formula(formulas.parse(expr_str), node_map, eq_classes)
+    return kripke.eval_formula(formulas.parse(expr_str), model[0], model[1])
 
 
 def _states(model, *names):
@@ -191,3 +190,49 @@ def test_d_private_var(model):
     """D(v[0]) holds wherever v[0] is true — intersections are all singletons
     in KripkeTest, so D reduces to the formula itself."""
     assert _eval("D(v[0])", model) == _states(model, "act0", "both")
+
+
+# -- Temporal properties --
+# KripkeTest state graph: init → act0 → both, init → act1 → both
+
+def test_always_pass(model):
+    r"""Agent 0 always knows w[0]'s value (true or false)."""
+    sat = _eval(r"K(0, w[0]) \/ K(0, ~w[0])", model)
+    assert sat == _states(model, "init", "act0", "act1", "both")
+    passed, violations = kripke.check_always(sat, set(model[0].keys()))
+    assert passed
+    assert violations == set()
+
+def test_always_fail(model):
+    """[]K(0, v[0]) fails at init and act1."""
+    sat = _eval("K(0, v[0])", model)
+    passed, violations = kripke.check_always(sat, set(model[0].keys()))
+    assert not passed
+    assert violations == _states(model, "init", "act1")
+
+def test_eventually_pass(model):
+    """<>K(0, v[0]) — every path reaches a state where agent 0 knows v[0]."""
+    sat = _eval("K(0, v[0])", model)
+    passed, violations = kripke.check_eventually(model[3], sat)
+    assert passed
+
+def test_eventually_fail(model):
+    """<>K(0, v[1]) — fails: path init→act0→both never reaches K(0, v[1])."""
+    sat = _eval("K(0, v[1])", model)
+    passed, violations = kripke.check_eventually(model[3], sat)
+    assert not passed
+
+def test_leads_to_pass(model):
+    """w[0] ~> K(0, v[0]) — whenever w[0] holds, K(0, v[0]) eventually follows."""
+    psi = _eval("w[0]", model)
+    phi = _eval("K(0, v[0])", model)
+    passed, violations = kripke.check_leads_to(model[3], psi, phi)
+    assert passed
+
+def test_leads_to_fail(model):
+    """v[1] ~> K(0, v[1]) — fails at both (terminal, K(0, v[1]) doesn't hold)."""
+    psi = _eval("v[1]", model)
+    phi = _eval("K(0, v[1])", model)
+    passed, violations = kripke.check_leads_to(model[3], psi, phi)
+    assert not passed
+    assert _states(model, "both").issubset(violations)
