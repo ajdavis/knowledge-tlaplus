@@ -19,7 +19,7 @@
 
 ## Next
 
-- [ ] Distributed knowledge operator D
+- [X] Distributed knowledge operator D
   - D_G(φ) holds at state s iff φ holds at all states in the *intersection* of all agents'
     equivalence classes containing s. It represents what the group would know if they pooled
     their information. See Halpern & Moses Section 3 (p.5) definition and Section 6 (p.13-14)

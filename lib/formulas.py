@@ -16,6 +16,7 @@ GRAMMAR = r"""
     ?atom: "K" "(" AGENT "," expr ")" -> k
          | "E" "(" expr ")"           -> e
          | "C" "(" expr ")"           -> c
+         | "D" "(" expr ")"           -> d
          | "TRUE"                     -> true_
          | "FALSE"                    -> false_
          | NAME "[" INT "]"           -> indexed_var
@@ -57,6 +58,12 @@ class C:
     body: object
     def __str__(self):
         return f"C({self.body})"
+
+@dataclass(frozen=True)
+class D:
+    body: object
+    def __str__(self):
+        return f"D({self.body})"
 
 @dataclass(frozen=True)
 class Var:
@@ -104,6 +111,9 @@ class _ASTTransformer(Transformer):
 
     def c(self, body):
         return C(body)
+
+    def d(self, body):
+        return D(body)
 
     def var(self, name):
         return Var(str(name))

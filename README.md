@@ -57,7 +57,7 @@ indistinguishability graph with custom node labels and satisfying states highlig
    agent IDs to processes via initial `pc` labels.
 4. **`lib/kripke.py`** builds indistinguishability equivalence classes and the Kripke structure
    from the agent observation model.
-5. **`lib/formulas.py`** parses epistemic formulas (K, E, C, boolean connectives) and evaluates
+5. **`lib/formulas.py`** parses epistemic formulas (K, E, C, D, boolean connectives) and evaluates
    them on the Kripke structure.
 6. **`lib/tlc.py`** runs TLC and parses the JSON state graph output.
 
@@ -65,6 +65,8 @@ indistinguishability graph with custom node labels and satisfying states highlig
 
 - **K(i, φ)** at state s: φ holds at all states indistinguishable from s for agent i
 - **E(φ)**: K(i, φ) for all agents i (everyone knows)
+- **D(φ)**: φ holds at all states in the intersection of all agents' equivalence classes
+  (distributed knowledge — what the group would know if they pooled their information)
 - **C(φ)**: fixed point — φ holds at all states reachable via indistinguishability edges
   (common knowledge)
 

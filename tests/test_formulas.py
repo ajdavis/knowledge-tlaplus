@@ -9,7 +9,7 @@ from lark.exceptions import UnexpectedInput
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.formulas import (
-    And, BoolLit, C, E, K, Not, Or, Var, parse,
+    And, BoolLit, C, D, E, K, Not, Or, Var, parse,
 )
 
 # -- Atoms --
@@ -39,6 +39,9 @@ def test_e():
 
 def test_c():
     assert parse("C(x)") == C(Var("x"))
+
+def test_d():
+    assert parse("D(x)") == D(Var("x"))
 
 # -- Boolean operators (ASCII and Unicode) --
 
@@ -94,6 +97,7 @@ def test_raft_formula():
     ("K(0, x)", "K(0, x)"),
     ("E(x)", "E(x)"),
     ("C(x)", "C(x)"),
+    ("D(x)", "D(x)"),
     ("~x", "~x"),
     (r"x \/ y", r"(x \/ y)"),
     (r"x /\ y", r"(x /\ y)"),
@@ -135,6 +139,7 @@ ast_strategy = st.recursive(
         st.tuples(st.integers(0, 9), children).map(lambda t: K(t[0], t[1])),
         children.map(E),
         children.map(C),
+        children.map(D),
         children.map(Not),
         st.tuples(children, children).map(lambda t: Or(t[0], t[1])),
         st.tuples(children, children).map(lambda t: And(t[0], t[1])),

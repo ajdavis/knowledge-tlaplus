@@ -170,3 +170,24 @@ def test_c_private_var(model):
 def test_c_public_var(model):
     """w[0] is common knowledge in the {act0, act1, both} component."""
     assert _eval("C(w[0])", model) == _states(model, "act0", "act1", "both")
+
+
+# -- D (distributed knowledge) --
+
+def test_d_conjunction(model):
+    r"""D(v[0] /\ v[1]) holds at both — the intersection of equiv classes is
+    {both}, and v[0]/\v[1] holds there. E(v[0] /\ v[1]) holds nowhere."""
+    assert _eval(r"D(v[0] /\ v[1])", model) == _states(model, "both")
+    assert _eval(r"E(v[0] /\ v[1])", model) == set()
+
+def test_d_superset_of_e(model):
+    """D(φ) ⊇ E(φ) for several formulas."""
+    for formula in ["v[0]", "v[1]", r"v[0] \/ v[1]", r"v[0] /\ v[1]", "w[0]"]:
+        d_states = _eval(f"D({formula})", model)
+        e_states = _eval(f"E({formula})", model)
+        assert d_states >= e_states, f"D ⊉ E for {formula}"
+
+def test_d_private_var(model):
+    """D(v[0]) holds wherever v[0] is true — intersections are all singletons
+    in KripkeTest, so D reduces to the formula itself."""
+    assert _eval("D(v[0])", model) == _states(model, "act0", "both")

@@ -71,6 +71,33 @@ def eval_k(agent: str, phi_states: set, eq_classes: dict[str, list[frozenset]]) 
     return result
 
 
+def eval_d(phi_states: set, eq_classes: dict[str, list[frozenset]]) -> set:
+    """Evaluate D(φ): states where the group has distributed knowledge of φ.
+
+    D_G(φ) holds at state s iff φ holds at all states in the intersection of
+    s's equivalence classes across all agents. This represents what the group
+    would know if they pooled their information.
+    """
+    agents = sorted(eq_classes.keys())
+    # Map each (agent, state) -> its equivalence class
+    state_to_class = {}
+    for agent in agents:
+        m = {}
+        for cls in eq_classes[agent]:
+            for fp in cls:
+                m[fp] = cls
+        state_to_class[agent] = m
+
+    result = set()
+    for s in state_to_class[agents[0]]:
+        intersection = state_to_class[agents[0]][s]
+        for agent in agents[1:]:
+            intersection = intersection & state_to_class[agent][s]
+        if intersection.issubset(phi_states):
+            result.add(s)
+    return result
+
+
 def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]]) -> set: # type: ignore[return]
     """Evaluate a parsed epistemic formula, returning the set of satisfying states."""
     from lib import formulas
@@ -92,6 +119,8 @@ def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]]) ->
             return eval_formula(left, node_map, eq_classes) | eval_formula(right, node_map, eq_classes)
         case formulas.K(agent, body):
             return eval_k(str(agent), eval_formula(body, node_map, eq_classes), eq_classes)
+        case formulas.D(body):
+            return eval_d(eval_formula(body, node_map, eq_classes), eq_classes)
         case formulas.E(body):
             phi = eval_formula(body, node_map, eq_classes)
             result = all_fps
