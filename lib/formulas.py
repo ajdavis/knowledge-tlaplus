@@ -182,6 +182,55 @@ class _ASTTransformer(Transformer):
 _transformer = _ASTTransformer()
 
 
+def _needs_parens(node):
+    return isinstance(node, (Or, And))
+
+
+def to_html(ast, _agent=None):
+    """Convert AST to Graphviz HTML-label string with subscripts and symbols."""
+    match ast:
+        case K(agent, body):
+            b = to_html(body, _agent=agent)
+            if _needs_parens(body):
+                b = f"({b})"
+            return f"K<SUB>{agent}</SUB> {b}"
+        case E(body):
+            b = to_html(body, _agent=_agent)
+            if _needs_parens(body):
+                b = f"({b})"
+            return f"E {b}"
+        case C(body):
+            b = to_html(body, _agent=_agent)
+            if _needs_parens(body):
+                b = f"({b})"
+            return f"C {b}"
+        case D(body):
+            b = to_html(body, _agent=_agent)
+            if _needs_parens(body):
+                b = f"({b})"
+            return f"D {b}"
+        case Var(name, index):
+            if index is None or index == _agent:
+                return name
+            return f"{name}<SUB>{index}</SUB>"
+        case Or(left, right):
+            return f"{to_html(left, _agent)} &#8744; {to_html(right, _agent)}"
+        case And(left, right):
+            l = to_html(left, _agent)
+            if isinstance(left, Or):
+                l = f"({l})"
+            r = to_html(right, _agent)
+            if isinstance(right, Or):
+                r = f"({r})"
+            return f"{l} &#8743; {r}"
+        case Not(body):
+            return f"&#172;{to_html(body, _agent)}"
+        case BoolLit(value):
+            return "TRUE" if value else "FALSE"
+        case _:
+            raise ValueError(f"Unsupported AST node: {ast}")
+
+
 def parse(text: str):
     """Parse an epistemic formula string into an AST."""
     tree = parser.parse(text)

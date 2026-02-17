@@ -59,7 +59,7 @@ end process;
 end algorithm; *)
 
 \* NODE_LABEL acks: {acks}\nnet: {', '.join(m['type']+(':'+str(m['dest']) if 'dest' in m else '<'+str(m['src'])) for m in network)}\nreceived: {received}\nsent: {sent}\ncmdAck: {commandAcknowledged}
-\* KNOWLEDGE_QUERY psi: K(0, K(1, received[1]) \/ K(2, received[2]))
+\* KNOWLEDGE_QUERY K(0, K(1, received[1]) \/ K(2, received[2]))
 \* KNOWLEDGE_PROPERTY <>K(0, K(1, received[1]) \/ K(2, received[2]))
 \* KNOWLEDGE_PROPERTY sent[1] ~> K(1, received[1])
 \* KNOWLEDGE_PROPERTY sent[2] ~> K(2, received[2])

@@ -64,12 +64,8 @@ Evaluate an epistemic formula at each state and show which states satisfy it:
 \* KNOWLEDGE_QUERY K(0, K(1, received[1]) \/ K(2, received[2]))
 ```
 
-Satisfying states are highlighted yellow in the PDF. To also display a label on those nodes, add
-an alias — without one, no text appears:
-
-```tla
-\* KNOWLEDGE_QUERY psi: K(0, K(1, received[1]) \/ K(2, received[2]))
-```
+Satisfying states are highlighted yellow in the PDF with the formula displayed using
+Halpern & Moses notation (subscripted agents, math symbols: K₀(K₁ received ∨ K₂ received)).
 
 ### Knowledge Properties (Temporal Assertions)
 

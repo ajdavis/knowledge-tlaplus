@@ -53,11 +53,11 @@ end process;
 end algorithm; *)
 
 \* NODE_LABEL 0: (s={sent[0]}, r={rcvd[0]})\n1: (s={sent[1]}, r={rcvd[1]})
-\* KNOWLEDGE_QUERY K0: K(0, rcvd[1])
-\* KNOWLEDGE_QUERY K1: K(1, rcvd[1])
-\* KNOWLEDGE_QUERY Kb: K(1, K(0, rcvd[1]))
-\* KNOWLEDGE_QUERY K4b: K(0, K(1, K(0, rcvd[1])))
-\* KNOWLEDGE_QUERY Cb: C(rcvd[1])
+\* KNOWLEDGE_QUERY K(0, rcvd[1])
+\* KNOWLEDGE_QUERY K(1, rcvd[1])
+\* KNOWLEDGE_QUERY K(1, K(0, rcvd[1]))
+\* KNOWLEDGE_QUERY K(0, K(1, K(0, rcvd[1])))
+\* KNOWLEDGE_QUERY C(rcvd[1])
 \* KNOWLEDGE_PROPERTY []~C(rcvd[1])
 
 \* BEGIN TRANSLATION

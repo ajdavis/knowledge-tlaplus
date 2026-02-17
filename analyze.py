@@ -168,16 +168,16 @@ def main(tla_path):
     all_fps = set(states.keys())
 
     # Evaluate queries (exploratory, per-state)
-    sat_states = {}  # fp -> set of aliases
+    sat_states = {}  # fp -> list of HTML formula strings
     for q in queries:
         ast = formulas.parse(q.formula)
         result = kripke.eval_formula(ast, states, eq_classes)
+        html = formulas.to_html(ast)
         print(f"\n{ast} holds at {len(result)}/{len(all_fps)} states:")
         for fp in sorted(result):
             print(f"  {state_label(states[fp], **label_kwargs)}")
-            sat_states.setdefault(fp, set())
-            if q.alias:
-                sat_states[fp].add(q.alias)
+            sat_states.setdefault(fp, [])
+            sat_states[fp].append(html)
 
     # Check properties (temporal assertions)
     all_passed = True
@@ -196,12 +196,15 @@ def main(tla_path):
             all_passed = False
 
     # Build DOT graph
+    def _html_escape(s):
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
     for fp in indist_G.nodes():
-        label = state_label(states[fp], **label_kwargs)
+        label = _html_escape(state_label(states[fp], **label_kwargs))
+        label = label.replace("\n", '<BR/>')
         if fp in sat_states:
-            aliases = sat_states[fp]
-            if aliases:
-                label += "\n" + ", ".join(sorted(aliases))
+            for html in sat_states[fp]:
+                label += '<BR/>' + html
             indist_G.nodes[fp]["style"] = "filled"
             indist_G.nodes[fp]["fillcolor"] = "yellow"
         indist_G.nodes[fp]["label"] = label
@@ -220,7 +223,20 @@ def main(tla_path):
     dot_path = spec_dir / f"{spec_name}-indistinguishability.dot"
     write_dot(indist_G, dot_path)
 
-    # Inject HTML legend node (write_dot doesn't support HTML labels)
+    # Convert quoted labels to HTML labels (write_dot only emits quoted labels)
+    dot_text = dot_path.read_text()
+    dot_text = re.sub(
+        r'label="((?:[^"\\]|\\.)*)"',
+        lambda m: (
+            'label=<<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0">'
+            '<TR><TD BALIGN="LEFT">'
+            + m.group(1).replace('\\"', '"')
+            + '<BR/></TD></TR></TABLE>>'
+        ),
+        dot_text)
+    dot_path.write_text(dot_text)
+
+    # Inject HTML legend node
     cells = "".join(
         f'<TD>&nbsp;</TD><TD BGCOLOR="{agent_colors[a]}" WIDTH="30" HEIGHT="6"></TD>'
         f'<TD>&nbsp;<FONT POINT-SIZE="24">{a}</FONT>&nbsp;</TD>'

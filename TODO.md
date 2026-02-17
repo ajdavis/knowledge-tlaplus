@@ -102,10 +102,8 @@
     climbing (K, KK, KKK) while common knowledge C never holds.
   - `coordinated-attack/CoordinatedAttack.tla`
   
-- [ ] Improve aliases:
-  - allow richer identifiers with spaces and parens etc
-  - perhaps LaTeX?
-  - or format the knowledge expr itself and get rid of aliases?
+- [X] Improve aliases: replaced with formatted formulas in Halpern & Moses notation
+  using Graphviz HTML labels with subscripts and math symbols
 
 - [X] Knowledge-based protocol verification
   - The paper (Section 14, p.36) mentions "knowledge-based protocols" where a processor's
