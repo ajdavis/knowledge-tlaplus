@@ -38,6 +38,24 @@ to record what they've learned.
 
 Add annotations as TLA+ comments (before `\* BEGIN TRANSLATION`).
 
+### Process-Local Variables
+
+PlusCal translates each set-process local variable into a TLA+ function indexed by process ID.
+In annotations, use the TLA+ form — `rcvd[0]`, `rcvd[1]` — not the PlusCal form `rcvd`:
+
+```pluscal
+process Gen \in {0, 1}
+variables sent = 0, rcvd = 0;
+```
+
+```tla
+\* KNOWLEDGE_QUERY K(1, rcvd[1])          \* general 1's local rcvd
+\* KNOWLEDGE_QUERY K(0, rcvd[1])          \* general 0 knows general 1's rcvd
+\* KNOWLEDGE_PROPERTY <>K(0, sent[0])     \* NOT just "sent"
+```
+
+Singleton-process local variables are not indexed.
+
 ### Knowledge Queries (Exploratory)
 
 Evaluate an epistemic formula at each state and show which states satisfy it:
@@ -46,7 +64,8 @@ Evaluate an epistemic formula at each state and show which states satisfy it:
 \* KNOWLEDGE_QUERY K(0, K(1, received[1]) \/ K(2, received[2]))
 ```
 
-Queries can have an alias that is displayed on satisfying nodes in the graph:
+Satisfying states are highlighted yellow in the PDF. To also display a label on those nodes, add
+an alias — without one, no text appears:
 
 ```tla
 \* KNOWLEDGE_QUERY psi: K(0, K(1, received[1]) \/ K(2, received[2]))
