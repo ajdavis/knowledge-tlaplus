@@ -110,6 +110,8 @@ def build_label_context(state, processes, agent_map):
         if key in set_vars and isinstance(value, list):
             agents = set_vars[key]
             context[key] = {int(a): value[i] for i, a in enumerate(agents)}
+        elif key in set_vars and isinstance(value, dict):
+            context[key] = {int(k): v for k, v in value.items()}
         else:
             context[key] = value
     return context

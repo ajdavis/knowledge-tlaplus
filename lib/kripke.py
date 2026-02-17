@@ -128,18 +128,15 @@ def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]]) ->
                 result &= eval_k(agent, phi, eq_classes)
             return result
         case formulas.C(body):
-            # Fixed-point: C(φ) = E(φ) ∧ E(E(φ)) ∧ ...
-            phi = eval_formula(body, node_map, eq_classes)
-            result = all_fps
-            current = phi
+            # Fixed-point: C(φ) = lim Eⁿ(φ), decreasing sequence
+            current = eval_formula(body, node_map, eq_classes)
             while True:
-                e_current = all_fps
+                e_current = set(all_fps)
                 for agent in agents:
                     e_current &= eval_k(agent, current, eq_classes)
-                result &= e_current
-                if result == current:
-                    return result
-                current = result
+                if e_current == current:
+                    return current
+                current = e_current
 
 
 def check_always(sat_states: set, all_states: set) -> tuple[bool, set]:

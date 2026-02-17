@@ -96,22 +96,16 @@
     (4) after ReceiveAck — leader knows the follower received. The knowledge hierarchy
     visibly climbs with each communication step.
 
-- [ ] Coordinated attack spec
-  - Write a TLA+/PlusCal spec for the coordinated attack problem (Halpern & Moses Section 4,
-    p.8): two generals on hilltops communicate via unreliable messenger. The messenger might
-    be captured, so messages might not arrive. General A sends "attack at dawn", the messenger
-    delivers it (or doesn't), B sends back an ack (or doesn't), etc.
-  - Model as a PlusCal spec with: a global `channel` variable (set of messages that may or may
-    not be delivered), two processes (generals), and nondeterministic message loss. Each general
-    has a local variable tracking what they've received. Model a fixed number of rounds (e.g., 3).
-  - Use the knowledge evolution visualization (above) to demonstrate that: (1) after A sends,
-    B knows A wants to attack but A doesn't know B received, (2) after B acks, A knows B
-    knows but B doesn't know A received the ack, (3) this regress continues — E^k knowledge
-    increases with each message but C(attack) never holds. This mechanically demonstrates the
-    impossibility result from the paper: common knowledge is unattainable with unreliable
-    communication.
-  - Add `KNOWLEDGE_PROPERTY` annotations to check `C(attack)` (should hold nowhere) and
-    `K(A, K(B, attack))` etc. at various states.
+- [X] Coordinated attack spec
+  - PlusCal spec for the coordinated attack problem (Halpern & Moses Section 4, p.8).
+    Two generals, 3 rounds of unreliable communication. Demonstrates knowledge hierarchy
+    climbing (K, KK, KKK) while common knowledge C never holds.
+  - `coordinated-attack/CoordinatedAttack.tla`
+  
+- [ ] Improve aliases:
+  - allow richer identifiers with spaces and parens etc
+  - perhaps LaTeX?
+  - or format the knowledge expr itself and get rid of aliases?
 
 - [ ] Knowledge-based protocol verification
   - The paper (Section 14, p.36) mentions "knowledge-based protocols" where a processor's
