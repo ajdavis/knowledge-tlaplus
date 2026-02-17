@@ -225,6 +225,15 @@ def extract_properties(tla_path: str | Path) -> list[Property]:
     return _extract_annotations(tla_path, r"\* KNOWLEDGE_PROPERTY ")
 
 
+def extract_preconditions(tla_path: str | Path) -> list[Property]:
+    r"""Extract ``\* KNOWLEDGE_PRECONDITION`` annotations (label-based assertions).
+
+    Format: ``\* KNOWLEDGE_PRECONDITION label: K(i, φ)`` — asserts the knowledge
+    condition holds at all states where ``pc[i] = label``.
+    """
+    return _extract_annotations(tla_path, r"\* KNOWLEDGE_PRECONDITION ")
+
+
 def extract_node_label(tla_path: str | Path) -> str | None:
     """Extract NODE_LABEL template from TLA+ file comments."""
     for line in Path(tla_path).read_text().splitlines():

@@ -7,6 +7,7 @@ import pytest
 from networkx.drawing.nx_pydot import write_dot
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from analyze import _states_at_label, _check_precondition
 from lib import tlc, kripke, formulas, pcal
 
 THIS_DIR = Path(__file__).parent
@@ -236,3 +237,63 @@ def test_leads_to_fail(model):
     passed, violations = kripke.check_leads_to(model[3], psi, phi)
     assert not passed
     assert _states(model, "both").issubset(violations)
+
+
+# -- _states_at_label --
+
+def test_states_at_label():
+    """Unit test: find states by pc label in a small state graph."""
+    node_map = {
+        "fp1": {"pc": {"0": "SendFirst", "1": "ReceiveAndAck", "2": "ReceiveAndAck"}},
+        "fp2": {"pc": {"0": "ReceiveAck1", "1": "Done", "2": "ReceiveAndAck"}},
+        "fp3": {"pc": {"0": "AcknowledgeCommand", "1": "Done", "2": "Done"}},
+    }
+    collapse_map = {"fp1": "fp1", "fp2": "fp2", "fp3": "fp3"}
+    assert _states_at_label("AcknowledgeCommand", node_map, collapse_map) == {"fp3"}
+    assert _states_at_label("ReceiveAndAck", node_map, collapse_map) == {"fp1", "fp2"}
+    assert _states_at_label("Nonexistent", node_map, collapse_map) == set()
+
+
+def test_states_at_label_with_collapse():
+    """States with the same label collapse to the same representative."""
+    node_map = {
+        "fp1": {"pc": {"0": "Label"}},
+        "fp2": {"pc": {"0": "Label"}},
+    }
+    collapse_map = {"fp1": "fp1", "fp2": "fp1"}  # fp2 collapses to fp1
+    assert _states_at_label("Label", node_map, collapse_map) == {"fp1"}
+
+
+# -- Precondition integration test --
+
+RAFT_DIR = Path(__file__).parent.parent / "raft"
+
+
+@pytest.fixture(scope="module")
+def raft_model():
+    """Run TLC on SimpleRaft and return components for precondition checking."""
+    from analyze import collapse_states
+
+    tla_path = RAFT_DIR / "SimpleRaft.tla"
+    tlc.run(tla_path)
+    G, node_map, _ = tlc.parse_state_graph(RAFT_DIR / "SimpleRaft")
+    processes = pcal.parse_processes(tla_path)
+    agents = pcal.get_agents(node_map)
+    agent_map = pcal.map_agents_to_processes(processes, node_map)
+
+    def local_state_fn(state, agent):
+        return pcal.get_local_state(state, agent, agent_map)
+
+    kripke.validate_state_transitions(G, node_map, agents, local_state_fn)
+    states, collapse_map = collapse_states(node_map, agents, local_state_fn)
+    eq_classes = kripke.build_equivalence_classes(states, agents, local_state_fn)
+    return node_map, collapse_map, states, eq_classes
+
+
+def test_raft_precondition_pass(raft_model):
+    """AcknowledgeCommand precondition passes: leader knows a follower knows."""
+    node_map, collapse_map, states, eq_classes = raft_model
+    ast = formulas.parse(r"K(0, K(1, received[1]) \/ K(2, received[2]))")
+    label_kwargs = dict(template=None, processes=None, agent_map=None)
+    assert _check_precondition("AcknowledgeCommand", ast, node_map, collapse_map,
+                               states, eq_classes, label_kwargs)

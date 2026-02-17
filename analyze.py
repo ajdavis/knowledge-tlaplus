@@ -101,6 +101,33 @@ def _check_property(ast, states, eq_classes, collapsed_G, all_fps, label_kwargs)
                              f"([], <>, ~>), got: {ast}")
 
 
+def _states_at_label(label, node_map, collapse_map):
+    """Find collapsed states where some agent's pc matches label."""
+    collapsed = set()
+    for fp, state in node_map.items():
+        pc = state.get("pc", {})
+        if any(v == label for v in (pc.values() if isinstance(pc, dict) else pc)):
+            collapsed.add(collapse_map[fp])
+    return collapsed
+
+
+def _check_precondition(label, ast, node_map, collapse_map, states, eq_classes,
+                        label_kwargs):
+    """Check that a knowledge formula holds at all states with the given pc label."""
+    labeled = _states_at_label(label, node_map, collapse_map)
+    sat = kripke.eval_formula(ast, states, eq_classes)
+    violations = labeled - sat
+    if not violations:
+        print(f"\nPrecondition {label}: {ast}: PASS "
+              f"(holds at all {len(labeled)} states)")
+        return True
+    print(f"\nPrecondition {label}: {ast}: FAIL "
+          f"({len(violations)} violating states):")
+    for fp in sorted(violations):
+        print(f"  {state_label(states[fp], **label_kwargs)}")
+    return False
+
+
 def main(tla_path):
     tla_path = Path(tla_path)
     spec_name = tla_path.stem
@@ -158,6 +185,14 @@ def main(tla_path):
         ast = formulas.parse(prop.formula)
         if not _check_property(ast, states, eq_classes, collapsed_G, all_fps,
                                label_kwargs):
+            all_passed = False
+
+    # Check preconditions (knowledge at specific labels)
+    preconditions = formulas.extract_preconditions(tla_path)
+    for pre in preconditions:
+        ast = formulas.parse(pre.formula)
+        if not _check_precondition(pre.alias, ast, node_map, collapse_map,
+                                   states, eq_classes, label_kwargs):
             all_passed = False
 
     # Build DOT graph

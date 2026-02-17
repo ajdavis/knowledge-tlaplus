@@ -82,6 +82,20 @@ pass/fail and exits non-zero on failure. Must use a temporal operator (`[]`, `<>
 \* KNOWLEDGE_PROPERTY sent[1] ~> K(1, received[1])
 ```
 
+### Knowledge Preconditions (Label-Based Assertions)
+
+Assert that a knowledge condition holds whenever a specific PlusCal label is active. This
+verifies knowledge-based protocols: the protocol only takes an action when the agent has the
+required knowledge (Halpern & Moses Section 14).
+
+```tla
+\* KNOWLEDGE_PRECONDITION AcknowledgeCommand: K(0, K(1, received[1]) \/ K(2, received[2]))
+```
+
+This checks: at every state where `pc[Leader] = "AcknowledgeCommand"`, the leader knows that
+some follower knows about the log entry. The tool reports pass/fail and exits non-zero on
+failure, like `KNOWLEDGE_PROPERTY`.
+
 ### Node Labels
 
 Custom node label formatting using Python f-string syntax:

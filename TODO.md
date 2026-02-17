@@ -107,19 +107,17 @@
   - perhaps LaTeX?
   - or format the knowledge expr itself and get rid of aliases?
 
-- [ ] Knowledge-based protocol verification
+- [X] Knowledge-based protocol verification
   - The paper (Section 14, p.36) mentions "knowledge-based protocols" where a processor's
-    actions are explicitly conditioned on its knowledge. Implement a way to annotate PlusCal
-    actions with knowledge preconditions and verify that the protocol satisfies them.
-  - New annotation: `KNOWLEDGE_PRECONDITION label: K(i, φ)` — asserts that whenever the
-    PlusCal label `label` is enabled (i.e., the state has `pc[i] = label`), the knowledge
-    condition `K(i, φ)` holds. This checks that the protocol only takes an action when the
-    agent actually has the knowledge the protocol designer intended.
-  - Example in SimpleRaft: annotate `ReceiveAck1` with a precondition that the leader knows
-    at least one follower has received (the ack message in the network witnesses this).
-  - Implementation: for each precondition annotation, find all states where the label is
-    enabled (pc matches), evaluate the knowledge formula, and check containment. Report
-    violations as states where the action fires without the required knowledge.
+    actions are explicitly conditioned on its knowledge. `KNOWLEDGE_PRECONDITION` annotation
+    verifies that a protocol's actions only fire when the agent has the required knowledge.
+  - Annotation: `\* KNOWLEDGE_PRECONDITION label: K(i, φ)` — asserts that at all states
+    where `pc[i] = label`, the knowledge condition holds.
+  - Example in SimpleRaft: `commandAcknowledged` leader-local variable with
+    `AcknowledgeCommand` label. Precondition verifies the leader knows a follower knows about
+    the log entry before acknowledging the command.
+  - Implementation: `extract_preconditions()` in `lib/formulas.py`, `_states_at_label()` and
+    `_check_precondition()` in `analyze.py`.
 
 - [ ] Revisit Muddy Children with Halpern & Moses results
   - The muddy children puzzle is analyzed extensively in Halpern & Moses (Section 2, p.3-4

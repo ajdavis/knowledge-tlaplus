@@ -5,7 +5,8 @@
 (* - One log entry, permanent leader, two followers                        *)
 (* - Communication via a global network (set of messages)                  *)
 (* - Agent-observable state = PlusCal process-local variables              *)
-(*   Leader sees: sent, acks    Follower sees: received                    *)
+(*   Leader sees: sent, acks, commandAcknowledged                         *)
+(*   Follower sees: received                                              *)
 (***************************************************************************)
 
 EXTENDS Naturals
@@ -21,7 +22,8 @@ variables
 process LeaderProc = Leader
 variables
     sent = [f \in Followers |-> FALSE],
-    acks = [f \in Followers |-> FALSE];
+    acks = [f \in Followers |-> FALSE],
+    commandAcknowledged = FALSE;
 begin
     SendFirst:
         with f \in Followers do
@@ -37,6 +39,8 @@ begin
         with f \in {f \in Followers : [type |-> "ack", src |-> f] \in network /\ ~acks[f]} do
             acks[f] := TRUE;
         end with;
+    AcknowledgeCommand:
+        commandAcknowledged := TRUE;
     ReceiveAck2:
         with f \in {f \in Followers : [type |-> "ack", src |-> f] \in network /\ ~acks[f]} do
             acks[f] := TRUE;
@@ -54,16 +58,17 @@ end process;
 
 end algorithm; *)
 
-\* NODE_LABEL acks: {acks}\nnet: {', '.join(m['type']+(':'+str(m['dest']) if 'dest' in m else '<'+str(m['src'])) for m in network)}\nreceived: {received}\nsent: {sent}
+\* NODE_LABEL acks: {acks}\nnet: {', '.join(m['type']+(':'+str(m['dest']) if 'dest' in m else '<'+str(m['src'])) for m in network)}\nreceived: {received}\nsent: {sent}\ncmdAck: {commandAcknowledged}
 \* KNOWLEDGE_QUERY psi: K(0, K(1, received[1]) \/ K(2, received[2]))
 \* KNOWLEDGE_PROPERTY <>K(0, K(1, received[1]) \/ K(2, received[2]))
 \* KNOWLEDGE_PROPERTY sent[1] ~> K(1, received[1])
 \* KNOWLEDGE_PROPERTY sent[2] ~> K(2, received[2])
+\* KNOWLEDGE_PRECONDITION AcknowledgeCommand: K(0, K(1, received[1]) \/ K(2, received[2]))
 
 \* BEGIN TRANSLATION
-VARIABLES network, pc, sent, acks, received
+VARIABLES network, pc, sent, acks, commandAcknowledged, received
 
-vars == << network, pc, sent, acks, received >>
+vars == << network, pc, sent, acks, commandAcknowledged, received >>
 
 ProcSet == {Leader} \cup (Followers)
 
@@ -72,6 +77,7 @@ Init == (* Global variables *)
         (* Process LeaderProc *)
         /\ sent = [f \in Followers |-> FALSE]
         /\ acks = [f \in Followers |-> FALSE]
+        /\ commandAcknowledged = FALSE
         (* Process FollowerProc *)
         /\ received = [self \in Followers |-> FALSE]
         /\ pc = [self \in ProcSet |-> CASE self = Leader -> "SendFirst"
@@ -82,35 +88,41 @@ SendFirst == /\ pc[Leader] = "SendFirst"
                   /\ network' = (network \union {[type |-> "send", dest |-> f]})
                   /\ sent' = [sent EXCEPT ![f] = TRUE]
              /\ pc' = [pc EXCEPT ![Leader] = "SendSecond"]
-             /\ UNCHANGED << acks, received >>
+             /\ UNCHANGED << acks, commandAcknowledged, received >>
 
 SendSecond == /\ pc[Leader] = "SendSecond"
               /\ \E f \in {f \in Followers : ~sent[f]}:
                    /\ network' = (network \union {[type |-> "send", dest |-> f]})
                    /\ sent' = [sent EXCEPT ![f] = TRUE]
               /\ pc' = [pc EXCEPT ![Leader] = "ReceiveAck1"]
-              /\ UNCHANGED << acks, received >>
+              /\ UNCHANGED << acks, commandAcknowledged, received >>
 
 ReceiveAck1 == /\ pc[Leader] = "ReceiveAck1"
                /\ \E f \in {f \in Followers : [type |-> "ack", src |-> f] \in network /\ ~acks[f]}:
                     acks' = [acks EXCEPT ![f] = TRUE]
-               /\ pc' = [pc EXCEPT ![Leader] = "ReceiveAck2"]
-               /\ UNCHANGED << network, sent, received >>
+               /\ pc' = [pc EXCEPT ![Leader] = "AcknowledgeCommand"]
+               /\ UNCHANGED << network, sent, commandAcknowledged, received >>
+
+AcknowledgeCommand == /\ pc[Leader] = "AcknowledgeCommand"
+                      /\ commandAcknowledged' = TRUE
+                      /\ pc' = [pc EXCEPT ![Leader] = "ReceiveAck2"]
+                      /\ UNCHANGED << network, sent, acks, received >>
 
 ReceiveAck2 == /\ pc[Leader] = "ReceiveAck2"
                /\ \E f \in {f \in Followers : [type |-> "ack", src |-> f] \in network /\ ~acks[f]}:
                     acks' = [acks EXCEPT ![f] = TRUE]
                /\ pc' = [pc EXCEPT ![Leader] = "Done"]
-               /\ UNCHANGED << network, sent, received >>
+               /\ UNCHANGED << network, sent, commandAcknowledged, received >>
 
-LeaderProc == SendFirst \/ SendSecond \/ ReceiveAck1 \/ ReceiveAck2
+LeaderProc == SendFirst \/ SendSecond \/ ReceiveAck1 \/ AcknowledgeCommand
+                 \/ ReceiveAck2
 
 ReceiveAndAck(self) == /\ pc[self] = "ReceiveAndAck"
                        /\ [type |-> "send", dest |-> self] \in network
                        /\ received' = [received EXCEPT ![self] = TRUE]
                        /\ network' = (network \union {[type |-> "ack", src |-> self]})
                        /\ pc' = [pc EXCEPT ![self] = "Done"]
-                       /\ UNCHANGED << sent, acks >>
+                       /\ UNCHANGED << sent, acks, commandAcknowledged >>
 
 FollowerProc(self) == ReceiveAndAck(self)
 
