@@ -20,7 +20,8 @@ Children == 1..N
 (* --algorithm MuddyChildren
 variables
     \* muddy[i] = TRUE iff child i has mud (never changes, not directly visible to i)
-    muddy \in {f \in [Children -> BOOLEAN] : \E i \in Children : f[i]},
+    \* Only "prefix" configurations: children 1..k are muddy for some k in 1..N
+    muddy \in {[i \in Children |-> i <= k] : k \in Children},
     \* seesMuddy[i] = set of muddy children visible to i (initialized, never changes)
     seesMuddy = [i \in Children |-> {j \in Children : j /= i /\ muddy[j]}],
     \* saidYes[i] = set of children who said yes (same for all i, public)
@@ -31,14 +32,14 @@ variables
     q = [i \in Children |-> 0];
 
 define
-    \* Who says yes this round: child i says yes if they see exactly q other muddy children
-    SaysYes(i) == m[i] /\ q[i] + 1 = Cardinality(seesMuddy[i]) + 1
+    \* Muddy child i says yes when the round equals the number of muddy children they see
+    SaysYes(i) == muddy[i] /\ m[i] /\ q[i] = Cardinality(seesMuddy[i])
 end define;
 
 process AskLoop = 0
 begin
     Ask:
-        while q[1] < N-1 do
+        while q[1] < N do
             \* Father asks, update q and saidYes for all children
             q := [i \in Children |-> q[i] + 1] ||
             saidYes := [i \in Children |-> saidYes[i] \union {j \in Children : SaysYes(j)}];
@@ -51,7 +52,7 @@ end algorithm; *)
 VARIABLES muddy, seesMuddy, saidYes, m, q, pc
 
 (* define statement *)
-SaysYes(i) == m[i] /\ q[i] + 1 = Cardinality(seesMuddy[i]) + 1
+SaysYes(i) == muddy[i] /\ m[i] /\ q[i] = Cardinality(seesMuddy[i])
 
 
 vars == << muddy, seesMuddy, saidYes, m, q, pc >>
@@ -59,7 +60,7 @@ vars == << muddy, seesMuddy, saidYes, m, q, pc >>
 ProcSet == {0}
 
 Init == (* Global variables *)
-        /\ muddy \in {f \in [Children -> BOOLEAN] : \E i \in Children : f[i]}
+        /\ muddy \in {[i \in Children |-> i <= k] : k \in Children}
         /\ seesMuddy = [i \in Children |-> {j \in Children : j /= i /\ muddy[j]}]
         /\ saidYes = [i \in Children |-> {}]
         /\ m = [i \in Children |-> TRUE]
@@ -67,7 +68,7 @@ Init == (* Global variables *)
         /\ pc = [self \in ProcSet |-> "Ask"]
 
 Ask == /\ pc[0] = "Ask"
-       /\ IF q[1] < N-1
+       /\ IF q[1] < N
              THEN /\ /\ q' = [i \in Children |-> q[i] + 1]
                      /\ saidYes' = [i \in Children |-> saidYes[i] \union {j \in Children : SaysYes(j)}]
                   /\ pc' = [pc EXCEPT ![0] = "Ask"]
