@@ -47,7 +47,15 @@ def local_state_fn(state, agent):
             result.append(val[agent])
         else:
             result.append(val[int(agent) - 1])
+    # Include controller pc so Ask/Answer phases are distinguishable.
+    # The father asking is a public event all children observe.
+    result.append(state["pc"]["0"])
     return tuple(result)
+
+
+def phase(state):
+    """Return the controller phase: 'Ask' or 'Answer'."""
+    return state["pc"]["0"]
 
 
 def state_label(state: dict) -> str:
@@ -58,11 +66,23 @@ def state_label(state: dict) -> str:
     first_said_yes = saidYes[0] if saidYes else []
     yes_str = ",".join(str(i) for i in sorted(first_said_yes)) or "none"
     q_val = q[0] if q else 0
+    if phase(state) == "Answer":
+        return f"muddy:{muddy_str}\nq={q_val}?"
     return f"muddy:{muddy_str}\nyes:{yes_str} q={q_val}"
 
 
 def num_muddy(state):
     return sum(1 for v in state["muddy"] if v)
+
+
+def grid_col(state):
+    """Compute grid column index for the two-step layout."""
+    q_val = state["q"][0] if state["q"] else 0
+    if q_val == 0:
+        return 0
+    if phase(state) == "Answer":
+        return 2 * q_val - 1
+    return 2 * q_val
 
 
 if __name__ == "__main__":
@@ -82,13 +102,16 @@ if __name__ == "__main__":
     print(f"Agents: {agents}")
     print(f"Indistinguishability graph: {len(indist_G.nodes())} nodes, {len(indist_G.edges())} edges")
 
+    col_spacing = 1.3
+    row_spacing = 0.8
+
     for fp in indist_G.nodes():
         state = filtered_states[fp]
         label = _html_escape(state_label(state)).replace("\n", "<BR/>")
         indist_G.nodes[fp]["label"] = label
         k = num_muddy(state)
-        q_val = state["q"][0]
-        indist_G.nodes[fp]["pos"] = f"{q_val * 1.5},{-(k - 1) * 0.8}!"
+        col = grid_col(state)
+        indist_G.nodes[fp]["pos"] = f"{col * col_spacing},{-(k - 1) * row_spacing}!"
         indist_G.nodes[fp]["penwidth"] = "2"
         indist_G.nodes[fp]["fontsize"] = "14"
     agent_colors = _assign_colors(agents)
@@ -125,16 +148,16 @@ if __name__ == "__main__":
         text = ",".join(agent_list)
         su, sv = filtered_states[u], filtered_states[v]
         ku, kv = num_muddy(su), num_muddy(sv)
-        qu = su["q"][0]
-        mid_x = qu * 1.5 - 0.3
-        mid_y = -((ku - 1) * 0.8 + (kv - 1) * 0.8) / 2
+        col_u = grid_col(su)
+        mid_x = col_u * col_spacing - 0.25
+        mid_y = -((ku - 1) * row_spacing + (kv - 1) * row_spacing) / 2
         label_nodes.append(
             f'elabel{i} [shape=none, margin=0, fontsize=18, fontcolor="{color}", '
             f'label=<{text}>, pos="{mid_x},{mid_y}!"];\n')
 
     # Inject legend (position below the grid)
     max_k = max(num_muddy(filtered_states[fp]) for fp in indist_G.nodes())
-    legend_y = -(max_k - 1) * 0.8 - 0.7
+    legend_y = -(max_k - 1) * row_spacing - 0.7
     cells = "".join(
         f'<TD>&nbsp;</TD><TD BGCOLOR="{agent_colors[a]}" WIDTH="30" HEIGHT="6"></TD>'
         f'<TD>&nbsp;<FONT POINT-SIZE="14">{a}</FONT>&nbsp;</TD>'
@@ -153,13 +176,14 @@ if __name__ == "__main__":
     print(f"Wrote {pdf_path}")
 
     # Knowledge analysis: when do muddy children learn they are muddy?
+    # Group by (k, q, phase) to show knowledge at each step.
 
-    by_kq = defaultdict(list)
+    by_kqp = defaultdict(list)
     for fp, state in filtered_states.items():
-        by_kq[(num_muddy(state), state["q"][0])].append(fp)
+        q_val = state["q"][0] if state["q"] else 0
+        by_kqp[(num_muddy(state), q_val, phase(state))].append(fp)
 
-    max_q = max(q for _, q in by_kq)
-    q_cols = "  ".join(f"q={q}" for q in range(max_q))
+    max_q = max(q for _, q, _ in by_kqp)
 
     knows_muddy = {}
     for agent in agents:
@@ -167,26 +191,50 @@ if __name__ == "__main__":
         knows_muddy[agent] = kripke.eval_formula(
             formulas.K(i, formulas.Var("muddy", i)), filtered_states, eq_classes)
 
+    def _check_know(fps, states):
+        return fps and all(
+            fp in knows_muddy[str(idx + 1)]
+            for fp in fps
+            for idx, is_m in enumerate(states[fp]["muddy"]) if is_m)
+
+    # Build column headers: q=0, q=1?, q=1, q=2?, q=2, q=3?
+    col_headers = ["q=0"]
+    for q_val in range(1, max_q + 1):
+        col_headers.append(f"q={q_val}?")
+        col_headers.append(f"q={q_val}")
+    header = "  ".join(f"{h:>5}" for h in col_headers)
+
     print(f"\nK(i, muddy[i]): does muddy child i know they're muddy? (N={N})")
+    print(f"  (q=N? = father asked, q=N = children answered)")
     print()
-    print(f"    {q_cols}")
+    print(f"    {header}")
 
     all_match = True
     for k in range(1, N + 1):
         row = []
-        for q_val in range(max_q):
-            fps = by_kq.get((k, q_val), [])
-            know = fps and all(
-                fp in knows_muddy[str(idx + 1)]
-                for fp in fps
-                for idx, is_m in enumerate(filtered_states[fp]["muddy"]) if is_m)
-            row.append("K" if know else "-")
+        # q=0 (initial, pc=Ask)
+        fps = by_kqp.get((k, 0, "Ask"), [])
+        row.append("K" if _check_know(fps, filtered_states) else "-")
+        for q_val in range(1, max_q + 1):
+            # Asked (pc=Answer)
+            fps = by_kqp.get((k, q_val, "Answer"), [])
+            row.append("K" if _check_know(fps, filtered_states) else "-")
+            # Answered (pc=Ask)
+            fps = by_kqp.get((k, q_val, "Ask"), [])
+            row.append("K" if _check_know(fps, filtered_states) else "-")
 
-        first_know = next((q for q, v in enumerate(row) if v == "K"), None)
-        says_yes_q = k - 1
-        if first_know != says_yes_q:
+        # SaysYes fires at the Answer phase when q = |seesMuddy| + 1 = k
+        says_yes_q = k
+        first_know_answer = None
+        for q_val in range(1, max_q + 1):
+            col_idx = 2 * q_val - 1  # index into row for Answer phase
+            if row[col_idx] == "K":
+                first_know_answer = q_val
+                break
+
+        if first_know_answer != says_yes_q:
             all_match = False
-        print(f"k={k}  {'  '.join(f' {v} ' for v in row)}  (algorithm says yes at q={says_yes_q})")
+        print(f"k={k}  {'  '.join(f'{v:>5}' for v in row)}  (says yes at q={says_yes_q}? phase)")
 
     print()
     if all_match:

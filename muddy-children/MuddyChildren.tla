@@ -32,16 +32,19 @@ variables
     q = [i \in Children |-> 0];
 
 define
-    \* Muddy child i says yes when the round equals the number of muddy children they see
-    SaysYes(i) == muddy[i] /\ m[i] /\ q[i] = Cardinality(seesMuddy[i])
+    \* Muddy child i says yes when the round matches the number of muddy children they see.
+    \* q has already been incremented by the Ask step, so compare to cardinality + 1.
+    SaysYes(i) == muddy[i] /\ m[i] /\ q[i] = Cardinality(seesMuddy[i]) + 1
 end define;
 
 process AskLoop = 0
 begin
     Ask:
         while q[1] < N do
-            \* Father asks, update q and saidYes for all children
-            q := [i \in Children |-> q[i] + 1] ||
+            \* Father asks "do you know if you have mud?"
+            q := [i \in Children |-> q[i] + 1];
+        Answer:
+            \* Children answer simultaneously
             saidYes := [i \in Children |-> saidYes[i] \union {j \in Children : SaysYes(j)}];
         end while;
 end process;
@@ -52,7 +55,7 @@ end algorithm; *)
 VARIABLES muddy, seesMuddy, saidYes, m, q, pc
 
 (* define statement *)
-SaysYes(i) == muddy[i] /\ m[i] /\ q[i] = Cardinality(seesMuddy[i])
+SaysYes(i) == muddy[i] /\ m[i] /\ q[i] = Cardinality(seesMuddy[i]) + 1
 
 
 vars == << muddy, seesMuddy, saidYes, m, q, pc >>
@@ -69,14 +72,18 @@ Init == (* Global variables *)
 
 Ask == /\ pc[0] = "Ask"
        /\ IF q[1] < N
-             THEN /\ /\ q' = [i \in Children |-> q[i] + 1]
-                     /\ saidYes' = [i \in Children |-> saidYes[i] \union {j \in Children : SaysYes(j)}]
-                  /\ pc' = [pc EXCEPT ![0] = "Ask"]
+             THEN /\ q' = [i \in Children |-> q[i] + 1]
+                  /\ pc' = [pc EXCEPT ![0] = "Answer"]
              ELSE /\ pc' = [pc EXCEPT ![0] = "Done"]
-                  /\ UNCHANGED << saidYes, q >>
-       /\ UNCHANGED << muddy, seesMuddy, m >>
+                  /\ q' = q
+       /\ UNCHANGED << muddy, seesMuddy, saidYes, m >>
 
-AskLoop == Ask
+Answer == /\ pc[0] = "Answer"
+          /\ saidYes' = [i \in Children |-> saidYes[i] \union {j \in Children : SaysYes(j)}]
+          /\ pc' = [pc EXCEPT ![0] = "Ask"]
+          /\ UNCHANGED << muddy, seesMuddy, m, q >>
+
+AskLoop == Ask \/ Answer
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
