@@ -132,3 +132,12 @@
   - The MuddyChildren spec uses the controller pattern (not PlusCal per-agent processes) so
     it uses its own analysis script, not `analyze.py`. The E^k analysis might need to be
     added to that script or generalized.
+
+- [ ] Add to the talk:
+  - Can we check arbitrary combos of temporal and knowledge, like "K(0, <>(x=1))"?
+  - What knowledge properties are difficult or impossible to express in TLA+ or temporal logic in
+    general? Knowledge is a hyperproperty which TLA+ can't express or check....
+  - Reasoning About Knowledge Proposition 3.2.1: checking if a formula is true at a state is O(size
+    of Kripke structure X length of formula). Assumes "pi" is constant time.
+
+- [ ] Try some other protocols with knowledge properties
