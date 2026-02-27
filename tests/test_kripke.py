@@ -87,7 +87,7 @@ def model():
 
 
 def _eval(expr_str, model):
-    return kripke.eval_formula(formulas.parse(expr_str), model[0], model[1])
+    return kripke.eval_formula(formulas.parse(expr_str), model[0], model[1], G=model[3])
 
 
 def _states(model, *names):
@@ -239,6 +239,24 @@ def test_leads_to_fail(model):
     assert _states(model, "both").issubset(violations)
 
 
+# -- Temporal inside epistemic --
+# KripkeTest state graph: init → act0 → both, init → act1 → both
+
+def test_temporal_inside_epistemic(model):
+    """K(0, <>v[1]) holds everywhere: AF(v[1])=all states, K(0, all)=all.
+    But <>K(0, v[1]) only satisfies at {act1} — demonstrates the difference."""
+    assert _eval("K(0, <>v[1])", model) == _states(model, "init", "act0", "act1", "both")
+    # <>K(0, v[1]) fails: path init→act0→both never reaches K(0, v[1])={act1}
+    sat = _eval("K(0, v[1])", model)
+    passed, _ = kripke.check_eventually(model[3], sat)
+    assert not passed
+
+def test_always_inside_epistemic(model):
+    """K(0, []v[0]) = {act0, both}: agent 0 knows v[0] will always hold.
+    AG(v[0])={act0,both}, K(0,{act0,both})={act0,both}."""
+    assert _eval("K(0, []v[0])", model) == _states(model, "act0", "both")
+
+
 # -- _states_at_label --
 
 def test_states_at_label():
@@ -296,4 +314,4 @@ def test_raft_precondition_pass(raft_model):
     ast = formulas.parse(r"K(0, K(1, received[1]) \/ K(2, received[2]))")
     label_kwargs = dict(template=None, processes=None, agent_map=None)
     assert _check_precondition("AcknowledgeCommand", ast, node_map, collapse_map,
-                               states, eq_classes, label_kwargs)
+                               states, eq_classes, None, label_kwargs)

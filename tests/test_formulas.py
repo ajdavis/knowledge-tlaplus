@@ -51,6 +51,13 @@ def test_always():
 def test_eventually():
     assert parse("<>K(0, x)") == Eventually(K(0, Var("x")))
 
+def test_temporal_inside_k():
+    assert parse("K(0, <>x)") == K(0, Eventually(Var("x")))
+    assert parse("K(0, []x)") == K(0, Always(Var("x")))
+
+def test_temporal_nested():
+    assert parse("[]K(0, <>x)") == Always(K(0, Eventually(Var("x"))))
+
 def test_leads_to():
     assert parse("x ~> K(0, y)") == LeadsTo(Var("x"), K(0, Var("y")))
 
@@ -159,6 +166,8 @@ ast_strategy = st.recursive(
         children.map(C),
         children.map(D),
         children.map(Not),
+        children.map(Always),
+        children.map(Eventually),
         st.tuples(children, children).map(lambda t: Or(t[0], t[1])),
         st.tuples(children, children).map(lambda t: And(t[0], t[1])),
     ),

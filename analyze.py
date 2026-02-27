@@ -64,7 +64,7 @@ def _check_property(ast, states, eq_classes, collapsed_G, all_fps, label_kwargs)
     """Check a temporal property. Returns True if it passes."""
     match ast:
         case formulas.Always(body):
-            result = kripke.eval_formula(body, states, eq_classes)
+            result = kripke.eval_formula(body, states, eq_classes, G=collapsed_G)
             passed, violations = kripke.check_always(result, all_fps)
             if passed:
                 print(f"\n{ast}: PASS (holds at all {len(all_fps)} states)")
@@ -74,7 +74,7 @@ def _check_property(ast, states, eq_classes, collapsed_G, all_fps, label_kwargs)
                     print(f"  {state_label(states[fp], **label_kwargs)}")
             return passed
         case formulas.Eventually(body):
-            result = kripke.eval_formula(body, states, eq_classes)
+            result = kripke.eval_formula(body, states, eq_classes, G=collapsed_G)
             passed, violations = kripke.check_eventually(collapsed_G, result)
             if passed:
                 print(f"\n{ast}: PASS")
@@ -85,8 +85,8 @@ def _check_property(ast, states, eq_classes, collapsed_G, all_fps, label_kwargs)
                     print(f"  {state_label(states[fp], **label_kwargs)}")
             return passed
         case formulas.LeadsTo(left, right):
-            psi = kripke.eval_formula(left, states, eq_classes)
-            phi = kripke.eval_formula(right, states, eq_classes)
+            psi = kripke.eval_formula(left, states, eq_classes, G=collapsed_G)
+            phi = kripke.eval_formula(right, states, eq_classes, G=collapsed_G)
             passed, violations = kripke.check_leads_to(collapsed_G, psi, phi)
             if passed:
                 print(f"\n{ast}: PASS")
@@ -112,10 +112,10 @@ def _states_at_label(label, node_map, collapse_map):
 
 
 def _check_precondition(label, ast, node_map, collapse_map, states, eq_classes,
-                        label_kwargs):
+                        collapsed_G, label_kwargs):
     """Check that a knowledge formula holds at all states with the given pc label."""
     labeled = _states_at_label(label, node_map, collapse_map)
-    sat = kripke.eval_formula(ast, states, eq_classes)
+    sat = kripke.eval_formula(ast, states, eq_classes, G=collapsed_G)
     violations = labeled - sat
     if not violations:
         print(f"\nPrecondition {label}: {ast}: PASS "
@@ -171,7 +171,7 @@ def main(tla_path):
     sat_states = {}  # fp -> list of HTML formula strings
     for q in queries:
         ast = formulas.parse(q.formula)
-        result = kripke.eval_formula(ast, states, eq_classes)
+        result = kripke.eval_formula(ast, states, eq_classes, G=collapsed_G)
         html = formulas.to_html(ast)
         print(f"\n{ast} holds at {len(result)}/{len(all_fps)} states:")
         for fp in sorted(result):
@@ -192,7 +192,7 @@ def main(tla_path):
     for pre in preconditions:
         ast = formulas.parse(pre.formula)
         if not _check_precondition(pre.alias, ast, node_map, collapse_map,
-                                   states, eq_classes, label_kwargs):
+                                   states, eq_classes, collapsed_G, label_kwargs):
             all_passed = False
 
     # Build DOT graph

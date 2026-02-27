@@ -98,10 +98,11 @@ def eval_d(phi_states: set, eq_classes: dict[str, list[frozenset]]) -> set:
     return result
 
 
-def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]]) -> set: # type: ignore[return]
+def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]], G=None) -> set: # type: ignore[return]
     """Evaluate a parsed epistemic formula, returning the set of satisfying states."""
     from lib import formulas
 
+    rec = lambda a: eval_formula(a, node_map, eq_classes, G)
     all_fps = set(node_map.keys())
     agents = sorted(eq_classes.keys())
     match ast:
@@ -112,24 +113,24 @@ def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]]) ->
         case formulas.BoolLit(value):
             return all_fps if value else set()
         case formulas.Not(body):
-            return all_fps - eval_formula(body, node_map, eq_classes)
+            return all_fps - rec(body)
         case formulas.And(left, right):
-            return eval_formula(left, node_map, eq_classes) & eval_formula(right, node_map, eq_classes)
+            return rec(left) & rec(right)
         case formulas.Or(left, right):
-            return eval_formula(left, node_map, eq_classes) | eval_formula(right, node_map, eq_classes)
+            return rec(left) | rec(right)
         case formulas.K(agent, body):
-            return eval_k(str(agent), eval_formula(body, node_map, eq_classes), eq_classes)
+            return eval_k(str(agent), rec(body), eq_classes)
         case formulas.D(body):
-            return eval_d(eval_formula(body, node_map, eq_classes), eq_classes)
+            return eval_d(rec(body), eq_classes)
         case formulas.E(body):
-            phi = eval_formula(body, node_map, eq_classes)
+            phi = rec(body)
             result = all_fps
             for agent in agents:
                 result &= eval_k(agent, phi, eq_classes)
             return result
         case formulas.C(body):
             # Fixed-point: C(φ) = lim Eⁿ(φ), decreasing sequence
-            current = eval_formula(body, node_map, eq_classes)
+            current = rec(body)
             while True:
                 e_current = set(all_fps)
                 for agent in agents:
@@ -137,12 +138,34 @@ def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]]) ->
                 if e_current == current:
                     return current
                 current = e_current
+        case formulas.Always(body):
+            return _compute_ag(G, rec(body))
+        case formulas.Eventually(body):
+            return _compute_af(G, rec(body))
 
 
 def check_always(sat_states: set, all_states: set) -> tuple[bool, set]:
     """Check []φ: φ holds at every state. Returns (passed, violation_states)."""
     violations = all_states - sat_states
     return (not violations, violations)
+
+
+def _compute_ag(G: nx.DiGraph, phi_states: set) -> set:
+    """Compute AG φ: states where φ holds on all paths forever.
+
+    A state is in AG iff it satisfies φ and all successors are in AG.
+    Greatest fixpoint computation.
+    """
+    ag = phi_states & set(G.nodes())
+    changed = True
+    while changed:
+        changed = False
+        for s in list(ag):
+            succs = set(G.successors(s))
+            if succs and not succs.issubset(ag):
+                ag.discard(s)
+                changed = True
+    return ag
 
 
 def _compute_af(G: nx.DiGraph, phi_states: set) -> set:

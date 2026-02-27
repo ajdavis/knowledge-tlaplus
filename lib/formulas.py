@@ -6,16 +6,16 @@ from pathlib import Path
 from lark import Lark, Transformer, v_args
 
 GRAMMAR = r"""
-    ?top: _BOX expr -> always
-        | _DIAMOND expr -> eventually
-        | expr _LEADSTO expr -> leads_to
-        | expr
+    ?top: or_expr _LEADSTO or_expr -> leads_to
+        | or_expr
 
     ?expr: or_expr
 
     ?or_expr: and_expr (_OR and_expr)*
     ?and_expr: not_expr (_AND not_expr)*
     ?not_expr: _NOT not_expr -> not_
+             | _BOX not_expr -> always
+             | _DIAMOND not_expr -> eventually
              | atom
 
     ?atom: "K" "(" AGENT "," expr ")" -> k
@@ -223,6 +223,10 @@ def to_html(ast, _agent=None):
             if isinstance(right, Or):
                 r = f"({r})"
             return f"{l} &#8743; {r}"
+        case Always(body):
+            return f"&#9633; {to_html(body, _agent)}"
+        case Eventually(body):
+            return f"&#9671; {to_html(body, _agent)}"
         case Not(body):
             return f"&#172;{to_html(body, _agent)}"
         case BoolLit(value):

@@ -81,6 +81,11 @@ whole state graph. The tool exits non-zero if any property fails.
 - **<>φ**: liveness — on every execution path, φ eventually holds
 - **ψ ~> φ**: leads-to — whenever ψ holds, φ eventually follows on all paths
 
+Temporal operators can appear inside epistemic formulas, enabling properties like:
+
+- **K(0, <>v[1])**: agent 0 knows v[1] will eventually hold (different from <>K(0, v[1]))
+- **K(0, []v[0])**: agent 0 knows v[0] will always hold
+
 ```tla
 \* KNOWLEDGE_PROPERTY [](K(0, w[0]) \/ K(0, ~w[0]))
 \* KNOWLEDGE_PROPERTY <>K(0, v[0])

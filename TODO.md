@@ -134,7 +134,7 @@
     added to that script or generalized.
 
 - [ ] Add to the talk:
-  - Can we check arbitrary combos of temporal and knowledge, like "K(0, <>(x=1))"?
+  - √ Can we check arbitrary combos of temporal and knowledge, like "K(0, <>(x=1))"?
   - What knowledge properties are difficult or impossible to express in TLA+ or temporal logic in
     general? Knowledge is a hyperproperty which TLA+ can't express or check....
   - Reasoning About Knowledge Proposition 3.2.1: checking if a formula is true at a state is O(size
