@@ -135,9 +135,13 @@
 
 - [ ] Add to the talk:
   - √ Can we check arbitrary combos of temporal and knowledge, like "K(0, <>(x=1))"?
-  - What knowledge properties are difficult or impossible to express in TLA+ or temporal logic in
+  - √ What knowledge properties are difficult or impossible to express in TLA+ or temporal logic in
     general? Knowledge is a hyperproperty which TLA+ can't express or check....
   - Reasoning About Knowledge Proposition 3.2.1: checking if a formula is true at a state is O(size
     of Kripke structure X length of formula). Assumes "pi" is constant time.
 
 - [ ] Try some other protocols with knowledge properties
+
+- [ ] My agents don't automatically have history, you have to add it in PlusCal. If you don't,
+    an agent can only distinguish states that differ in their assignments to the agent's local vars,
+    but it should distinguish states that differ in the agent's overall history.

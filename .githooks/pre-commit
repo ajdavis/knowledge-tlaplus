@@ -5,3 +5,5 @@ set -e
 .venv/bin/python3 muddy-children/muddy-children-knowledge-analysis.py
 .venv/bin/python3 analyze.py raft/SimpleRaft.tla
 .venv/bin/python3 analyze.py coordinated-attack/CoordinatedAttack.tla
+! .venv/bin/python3 analyze.py login/LoginLeaky.tla
+.venv/bin/python3 analyze.py login/LoginFixed.tla
