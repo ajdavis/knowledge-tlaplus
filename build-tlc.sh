@@ -16,5 +16,9 @@ if [ ! -d "tlaplus" ]; then
 fi
 
 cd tlaplus/tlatools/org.lamport.tlatools
+# The `dist` target has a <fileset dir="test-class"> that bundles test helper
+# classes into tla2tools.jar. It doesn't depend on compile-test (which would
+# create the dir), so ant errors out if test-class/ is missing. Create it empty
+# --- the fileset resolves to zero files, and we don't need those helpers.
 mkdir -p test-class
 ant -f customBuild.xml info compile dist
