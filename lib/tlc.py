@@ -7,7 +7,7 @@ import networkx as nx
 
 _LIB_DIR = Path(__file__).parent
 _PROJECT_ROOT = _LIB_DIR.parent
-_JAVA_HOME = "/opt/homebrew/Cellar/openjdk@11/11.0.28"
+_JAVA_HOME = "/opt/homebrew/opt/openjdk"
 _TLA2TOOLS = _PROJECT_ROOT / "tlaplus/tlatools/org.lamport.tlatools/dist/tla2tools.jar"
 
 

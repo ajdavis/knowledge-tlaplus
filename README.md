@@ -6,10 +6,10 @@ Based on Halpern & Moses, "Knowledge and Common Knowledge in a Distributed Envir
 
 ## Setup
 
-Requires: Java 11, Ant, Graphviz, Python 3.
+Requires: Java (OpenJDK), Ant, Graphviz, Python 3.10+ .
 
 ```bash
-brew install openjdk@11 ant graphviz
+brew install openjdk ant graphviz python@3.14
 ./build-tlc.sh
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt

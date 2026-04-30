@@ -6,7 +6,7 @@ set -e
 
 cd "$(dirname "$0")"
 
-JAVA_HOME=/opt/homebrew/Cellar/openjdk@11/11.0.28
+JAVA_HOME=/opt/homebrew/opt/openjdk
 export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"
 
