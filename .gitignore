@@ -20,7 +20,6 @@ __pycache__/
 *-edges.json
 *.dot
 *.pdf
-*.cfg
 *_TTrace_*.*
 *.out
 /states
