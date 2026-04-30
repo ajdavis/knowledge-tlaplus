@@ -107,6 +107,9 @@ def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]], G=
     agents = sorted(eq_classes.keys())
     match ast:
         case formulas.Var(name, index):
+            if isinstance(index, str):
+                raise ValueError(
+                    f"{name}[{index}] has an unbound index; wrap in \\E or \\A")
             if index is not None:
                 return {fp for fp, s in node_map.items() if _lookup(s[name], index)}
             return {fp for fp, s in node_map.items() if s[name]}
@@ -119,7 +122,20 @@ def eval_formula(ast, node_map: dict, eq_classes: dict[str, list[frozenset]], G=
         case formulas.Or(left, right):
             return rec(left) | rec(right)
         case formulas.K(agent, body):
+            if not isinstance(agent, int):
+                raise ValueError(
+                    f"K({agent!r}, ...) has an unbound agent; wrap in \\E or \\A")
             return eval_k(str(agent), rec(body), eq_classes)
+        case formulas.Exists(var, domain, body):
+            result = set()
+            for v in domain:
+                result |= rec(formulas.substitute(body, var, v))
+            return result
+        case formulas.Forall(var, domain, body):
+            result = all_fps
+            for v in domain:
+                result &= rec(formulas.substitute(body, var, v))
+            return result
         case formulas.D(body):
             return eval_d(rec(body), eq_classes)
         case formulas.E(body):

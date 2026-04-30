@@ -59,8 +59,9 @@ properties (exiting non-zero on failure), and generates a DOT/PDF indistinguisha
    agent IDs to processes via initial `pc` labels.
 4. **`lib/kripke.py`** builds indistinguishability equivalence classes and the Kripke structure
    from the agent observation model.
-5. **`lib/formulas.py`** parses epistemic formulas (K, E, C, D, boolean connectives) and temporal
-   operators ([], <>, ~>), and evaluates them on the Kripke structure.
+5. **`lib/formulas.py`** parses epistemic formulas (K, E, C, D, boolean connectives), temporal
+   operators ([], <>, ~>), and finite-domain first-order quantifiers (\E, \A), and evaluates
+   them on the Kripke structure.
 6. **`lib/tlc.py`** runs TLC and parses the JSON state graph output.
 
 ## Epistemic Semantics
@@ -91,6 +92,23 @@ Temporal operators can appear inside epistemic formulas, enabling properties lik
 \* KNOWLEDGE_PROPERTY <>K(0, v[0])
 \* KNOWLEDGE_PROPERTY sent[1] ~> K(1, received[1])
 ```
+
+### First-Order Quantifiers (finite domain)
+
+Quantify over a literal finite set of integers. The bound name stands in for an agent ID
+or an array subscript:
+
+- **\E i \in {1, 2}: K(i, received[i])**: some agent in {1, 2} knows their own `received`
+- **\A i \in {0, 1, 2}: K(i, log[i])**: every agent in the set knows their own `log`
+
+```tla
+\* KNOWLEDGE_QUERY K(0, \E i \in {1, 2}: K(i, received[i]))
+\* KNOWLEDGE_PROPERTY <>K(0, \E i \in {1, 2}: K(i, received[i]))
+```
+
+`\E i \in {a,b,c}: phi(i)` is desugared to `phi(a) \/ phi(b) \/ phi(c)`; `\A` uses
+conjunction. Domains must be literal integer sets — this is finite-domain first-order
+over an otherwise propositional Kripke structure (Reasoning About Knowledge §3.7).
 
 Two states are indistinguishable for agent i when the agent's process-local variables have the
 same values in both states. See [docs/writing-specs.md](docs/writing-specs.md) for details on

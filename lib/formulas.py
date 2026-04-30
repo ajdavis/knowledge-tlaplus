@@ -7,9 +7,15 @@ from lark import Lark, Transformer, v_args
 
 GRAMMAR = r"""
     ?top: or_expr _LEADSTO or_expr -> leads_to
-        | or_expr
+        | expr
 
     ?expr: or_expr
+         | quantified
+
+    quantified: _EXISTS NAME _IN domain ":" expr -> exists
+              | _FORALL NAME _IN domain ":" expr -> forall
+
+    domain: "{" INT ("," INT)* "}"
 
     ?or_expr: and_expr (_OR and_expr)*
     ?and_expr: not_expr (_AND not_expr)*
@@ -18,25 +24,30 @@ GRAMMAR = r"""
              | _DIAMOND not_expr -> eventually
              | atom
 
-    ?atom: "K" "(" AGENT "," expr ")" -> k
+    ?atom: "K" "(" ref "," expr ")" -> k
          | "E" "(" expr ")"           -> e
          | "C" "(" expr ")"           -> c
          | "D" "(" expr ")"           -> d
          | "TRUE"                     -> true_
          | "FALSE"                    -> false_
-         | NAME "[" INT "]"           -> indexed_var
+         | NAME "[" ref "]"           -> indexed_var
          | NAME                       -> var
          | "(" expr ")"
 
-    AGENT: INT
+    ref: INT  -> int_ref
+       | NAME -> name_ref
+
     NAME: /[a-zA-Z_]\w*/
 
-    _OR: "\u2228" | "\\/"
-    _AND: "\u2227" | "/\\"
-    _NOT: "\u00ac" | "~"
+    _OR: "∨" | "\\/"
+    _AND: "∧" | "/\\"
+    _NOT: "¬" | "~"
     _BOX: "[]"
     _DIAMOND: "<>"
     _LEADSTO: "~>"
+    _EXISTS: "∃" | "\\E"
+    _FORALL: "∀" | "\\A"
+    _IN: "∈" | "\\in"
 
     %import common.INT
     %import common.WS
@@ -50,7 +61,7 @@ parser = Lark(GRAMMAR, start="top", parser="earley")
 
 @dataclass(frozen=True)
 class K:
-    agent: int
+    agent: object  # int after substitution; str (bound-var name) before
     body: object
     def __str__(self):
         return f"K({self.agent}, {self.body})"
@@ -95,7 +106,7 @@ class LeadsTo:
 @dataclass(frozen=True)
 class Var:
     name: str
-    index: int | None = None
+    index: object = None  # None, int, or str (bound-var name)
     def __str__(self):
         return f"{self.name}[{self.index}]" if self.index is not None else self.name
 
@@ -125,13 +136,33 @@ class BoolLit:
     def __str__(self):
         return "TRUE" if self.value else "FALSE"
 
+@dataclass(frozen=True)
+class Exists:
+    """\\E var \\in {d1,...,dn}: body — first-order quantification over a finite int set."""
+    var: str
+    domain: tuple
+    body: object
+    def __str__(self):
+        dom = ", ".join(str(d) for d in self.domain)
+        return f"(\\E {self.var} \\in {{{dom}}}: {self.body})"
+
+@dataclass(frozen=True)
+class Forall:
+    """\\A var \\in {d1,...,dn}: body — first-order universal over a finite int set."""
+    var: str
+    domain: tuple
+    body: object
+    def __str__(self):
+        dom = ", ".join(str(d) for d in self.domain)
+        return f"(\\A {self.var} \\in {{{dom}}}: {self.body})"
+
 
 # Tree transformer
 
 @v_args(inline=True)
 class _ASTTransformer(Transformer):
     def k(self, agent, body):
-        return K(int(agent), body)
+        return K(agent, body)
 
     def e(self, body):
         return E(body)
@@ -155,7 +186,7 @@ class _ASTTransformer(Transformer):
         return Var(str(name))
 
     def indexed_var(self, name, index):
-        return Var(str(name), int(index))
+        return Var(str(name), index)
 
     def true_(self):
         return BoolLit(True)
@@ -177,6 +208,21 @@ class _ASTTransformer(Transformer):
         for arg in args[1:]:
             result = And(result, arg)
         return result
+
+    def int_ref(self, token):
+        return int(token)
+
+    def name_ref(self, token):
+        return str(token)
+
+    def domain(self, *ints):
+        return tuple(int(t) for t in ints)
+
+    def exists(self, var, domain, body):
+        return Exists(str(var), domain, body)
+
+    def forall(self, var, domain, body):
+        return Forall(str(var), domain, body)
 
 
 _transformer = _ASTTransformer()
@@ -231,8 +277,59 @@ def to_html(ast, _agent=None):
             return f"&#172;{to_html(body, _agent)}"
         case BoolLit(value):
             return "TRUE" if value else "FALSE"
+        case Exists(var, domain, body):
+            dom = ",".join(str(d) for d in domain)
+            return f"&#8707;{var}&#8712;{{{dom}}}: {to_html(body, _agent)}"
+        case Forall(var, domain, body):
+            dom = ",".join(str(d) for d in domain)
+            return f"&#8704;{var}&#8712;{{{dom}}}: {to_html(body, _agent)}"
         case _:
             raise ValueError(f"Unsupported AST node: {ast}")
+
+
+def substitute(ast, var: str, value: int):
+    """Replace free occurrences of the bound name `var` with integer `value`.
+
+    Used to evaluate Exists/Forall by mechanical desugaring over a finite domain:
+    `\\E i \\in {1,2}: phi` is the disjunction of phi[i:=1] and phi[i:=2].
+    """
+    sub = lambda a: substitute(a, var, value)
+    match ast:
+        case K(agent, body):
+            new_agent = value if agent == var else agent
+            return K(new_agent, sub(body))
+        case Var(name, index):
+            return Var(name, value) if index == var else ast
+        case E(body):
+            return E(sub(body))
+        case C(body):
+            return C(sub(body))
+        case D(body):
+            return D(sub(body))
+        case Not(body):
+            return Not(sub(body))
+        case And(left, right):
+            return And(sub(left), sub(right))
+        case Or(left, right):
+            return Or(sub(left), sub(right))
+        case Always(body):
+            return Always(sub(body))
+        case Eventually(body):
+            return Eventually(sub(body))
+        case LeadsTo(left, right):
+            return LeadsTo(sub(left), sub(right))
+        case Exists(bound_var, domain, body):
+            if bound_var == var:
+                return ast
+            return Exists(bound_var, domain, sub(body))
+        case Forall(bound_var, domain, body):
+            if bound_var == var:
+                return ast
+            return Forall(bound_var, domain, sub(body))
+        case BoolLit(_):
+            return ast
+        case _:
+            raise ValueError(f"Unsupported AST node in substitute: {ast}")
 
 
 def parse(text: str):

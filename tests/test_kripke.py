@@ -257,6 +257,60 @@ def test_always_inside_epistemic(model):
     assert _eval("K(0, []v[0])", model) == _states(model, "act0", "both")
 
 
+# -- First-order quantifiers --
+# Domain {0, 1} ranges over the two agents in KripkeTest.
+
+def test_exists_equals_disjunction(model):
+    r"""\E i \in {0,1}: K(i, v[i]) ≡ K(0, v[0]) \/ K(1, v[1])."""
+    assert _eval(r"\E i \in {0, 1}: K(i, v[i])", model) == \
+        _eval(r"K(0, v[0]) \/ K(1, v[1])", model)
+
+def test_forall_equals_conjunction(model):
+    r"""\A i \in {0,1}: K(i, v[i]) ≡ K(0, v[0]) /\ K(1, v[1])."""
+    assert _eval(r"\A i \in {0, 1}: K(i, v[i])", model) == \
+        _eval(r"K(0, v[0]) /\ K(1, v[1])", model)
+
+def test_exists_satisfying_states(model):
+    r"""\E i \in {0,1}: K(i, v[i]) holds when some agent knows their own v.
+    Agent 0 knows v[0] in {act0, both}; agent 1 knows v[1] in {act1, both}.
+    Union: {act0, act1, both}."""
+    assert _eval(r"\E i \in {0, 1}: K(i, v[i])", model) == \
+        _states(model, "act0", "act1", "both")
+
+def test_forall_satisfying_states(model):
+    r"""\A i \in {0,1}: K(i, v[i]) requires every agent to know their own v.
+    Only at `both` do both agents know their own v is true."""
+    assert _eval(r"\A i \in {0, 1}: K(i, v[i])", model) == \
+        _states(model, "both")
+
+def test_quantifier_inside_k(model):
+    r"""K(0, \E i \in {0,1}: v[i]) ≡ K(0, v[0] \/ v[1])."""
+    assert _eval(r"K(0, \E i \in {0, 1}: v[i])", model) == \
+        _eval(r"K(0, v[0] \/ v[1])", model)
+
+def test_singleton_domain(model):
+    r"""\E i \in {0}: K(i, v[i]) ≡ K(0, v[0])."""
+    assert _eval(r"\E i \in {0}: K(i, v[i])", model) == \
+        _eval("K(0, v[0])", model)
+
+def test_quantifier_inside_temporal(model):
+    r"""<>(\E i \in {0,1}: K(i, v[i])) — every path eventually reaches a state
+    where some agent knows their own v. {both} is reached on every path."""
+    sat = _eval(r"\E i \in {0, 1}: K(i, v[i])", model)
+    passed, _ = kripke.check_eventually(model[3], sat)
+    assert passed
+
+def test_unbound_agent_raises(model):
+    """Evaluating K(i, x) with unbound `i` errors loudly, not silently."""
+    with pytest.raises(ValueError, match="unbound agent"):
+        _eval("K(i, v[0])", model)
+
+def test_unbound_index_raises(model):
+    """Evaluating v[i] with unbound `i` errors loudly, not silently."""
+    with pytest.raises(ValueError, match="unbound"):
+        _eval("v[i]", model)
+
+
 # -- _states_at_label --
 
 def test_states_at_label():
@@ -315,3 +369,25 @@ def test_raft_precondition_pass(raft_model):
     label_kwargs = dict(template=None, processes=None, agent_map=None)
     assert _check_precondition("AcknowledgeCommand", ast, node_map, collapse_map,
                                states, eq_classes, None, label_kwargs)
+
+
+def test_raft_precondition_pass_quantified(raft_model):
+    r"""Same precondition, quantified form: K(0, \E i \in {1,2}: K(i, received[i]))."""
+    node_map, collapse_map, states, eq_classes = raft_model
+    ast = formulas.parse(r"K(0, \E i \in {1, 2}: K(i, received[i]))")
+    label_kwargs = dict(template=None, processes=None, agent_map=None)
+    assert _check_precondition("AcknowledgeCommand", ast, node_map, collapse_map,
+                               states, eq_classes, None, label_kwargs)
+
+
+def test_raft_quantified_equals_disjunction(raft_model):
+    r"""On the raft model, the quantified form evaluates to exactly the same
+    state set as the hand-expanded disjunction."""
+    node_map, collapse_map, states, eq_classes = raft_model
+    quantified = kripke.eval_formula(
+        formulas.parse(r"K(0, \E i \in {1, 2}: K(i, received[i]))"),
+        states, eq_classes)
+    disjunction = kripke.eval_formula(
+        formulas.parse(r"K(0, K(1, received[1]) \/ K(2, received[2]))"),
+        states, eq_classes)
+    assert quantified == disjunction

@@ -78,6 +78,27 @@ pass/fail and exits non-zero on failure. Must use a temporal operator (`[]`, `<>
 \* KNOWLEDGE_PROPERTY sent[1] ~> K(1, received[1])
 ```
 
+### First-Order Quantification
+
+Quantify over a literal finite set of integers using `\E` (exists) or `\A` (forall). The
+bound name can stand in for either an agent ID (in `K(i, ...)`) or an array subscript
+(`received[i]`):
+
+```tla
+\* KNOWLEDGE_QUERY K(0, \E i \in {1, 2}: K(i, received[i]))
+\* KNOWLEDGE_PROPERTY <>K(0, \E i \in {1, 2}: K(i, received[i]))
+```
+
+Semantically, `\E i \in {1, 2}: phi(i)` is just `phi(1) \/ phi(2)` — the quantifier is
+desugared by substituting each domain value into the body and combining. `\A` uses
+conjunction. Domains must be literal integer sets; the bound variable extends rightward
+through `/\`, `\/`, `~`, `[]`, and `<>` (parenthesize to limit its scope).
+
+This is a finite-domain shortcut, not full first-order modal logic — the surrounding
+Kripke structure stays propositional under the hood. It works because the agent set and
+variable indices are fixed and finite, which is the regime where Fagin et al.'s
+common-domain assumption holds trivially (Reasoning About Knowledge §3.7).
+
 ### Knowledge Preconditions (Label-Based Assertions)
 
 Assert that a knowledge condition holds whenever a specific PlusCal label is active. This

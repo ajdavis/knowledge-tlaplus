@@ -9,7 +9,8 @@ from lark.exceptions import UnexpectedInput
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.formulas import (
-    Always, And, BoolLit, C, D, E, Eventually, K, LeadsTo, Not, Or, Var, parse,
+    Always, And, BoolLit, C, D, E, Eventually, Exists, Forall, K, LeadsTo,
+    Not, Or, Var, parse, substitute,
 )
 
 # -- Atoms --
@@ -109,6 +110,86 @@ def test_raft_formula():
     expected = K(0, Or(K(1, Var("r", 1)), K(2, Var("r", 2))))
     assert result == expected
 
+# -- First-order quantifiers --
+
+def test_exists_basic():
+    assert parse(r"\E i \in {1, 2}: K(i, x)") == Exists(
+        "i", (1, 2), K("i", Var("x")))
+
+def test_forall_basic():
+    assert parse(r"\A i \in {0, 1}: K(i, x)") == Forall(
+        "i", (0, 1), K("i", Var("x")))
+
+def test_exists_indexed_var():
+    """Bound variable in indexed-var subscript: \\E i: received[i]."""
+    assert parse(r"\E i \in {1, 2}: received[i]") == Exists(
+        "i", (1, 2), Var("received", "i"))
+
+def test_exists_in_k_body():
+    """Quantifier inside K: K(0, \\E i \\in {1,2}: K(i, received[i]))."""
+    assert parse(r"K(0, \E i \in {1, 2}: K(i, received[i]))") == K(
+        0, Exists("i", (1, 2), K("i", Var("received", "i"))))
+
+def test_exists_singleton_domain():
+    assert parse(r"\E i \in {3}: K(i, x)") == Exists(
+        "i", (3,), K("i", Var("x")))
+
+def test_quantifier_body_extends_through_and():
+    r"""\E body extends rightward through /\ — `\E i: P /\ Q` is `\E i: (P /\ Q)`."""
+    result = parse(r"\E i \in {1}: K(i, x) /\ K(i, y)")
+    assert result == Exists(
+        "i", (1,), And(K("i", Var("x")), K("i", Var("y"))))
+
+def test_nested_quantifiers():
+    assert parse(r"\E i \in {1}: \A j \in {2, 3}: K(i, K(j, x))") == Exists(
+        "i", (1,), Forall("j", (2, 3), K("i", K("j", Var("x")))))
+
+def test_quantifier_with_temporal():
+    assert parse(r"\E i \in {1, 2}: <>K(i, x)") == Exists(
+        "i", (1, 2), Eventually(K("i", Var("x"))))
+
+def test_quantifier_unicode():
+    assert parse("∃i ∈ {1, 2}: K(i, x)") == Exists(
+        "i", (1, 2), K("i", Var("x")))
+    assert parse("∀i ∈ {1, 2}: K(i, x)") == Forall(
+        "i", (1, 2), K("i", Var("x")))
+
+def test_exists_str_roundtrip():
+    expr = parse(r"\E i \in {1, 2}: K(i, received[i])")
+    assert parse(str(expr)) == expr
+
+def test_forall_str_roundtrip():
+    expr = parse(r"\A i \in {0, 1, 2}: K(i, v[i])")
+    assert parse(str(expr)) == expr
+
+
+# -- Substitution --
+
+def test_substitute_k_agent():
+    """substitute(K(i, x), i, 5) == K(5, x)."""
+    assert substitute(K("i", Var("x")), "i", 5) == K(5, Var("x"))
+
+def test_substitute_indexed_var():
+    """substitute(received[i], i, 2) == received[2]."""
+    assert substitute(Var("received", "i"), "i", 2) == Var("received", 2)
+
+def test_substitute_combined():
+    """substitute(K(i, received[i]), i, 1) == K(1, received[1])."""
+    assert substitute(K("i", Var("received", "i")), "i", 1) == K(
+        1, Var("received", 1))
+
+def test_substitute_shadowing():
+    """An inner Exists with the same bound name shadows: don't substitute past it."""
+    inner = Exists("i", (3,), K("i", Var("x")))
+    # Outer i bound, inner i also bound — substitute only affects free occurrences.
+    # Here every K("i", ...) is bound by the inner Exists, so substitute leaves it.
+    assert substitute(inner, "i", 99) == inner
+
+def test_substitute_no_op_for_unrelated_name():
+    """substitute(K(j, x), i, 5) leaves K(j, x) unchanged."""
+    expr = K("j", Var("x"))
+    assert substitute(expr, "i", 5) == expr
+
 # -- __str__ roundtrips --
 
 @pytest.mark.parametrize("text,expected_str", [
@@ -170,6 +251,16 @@ ast_strategy = st.recursive(
         children.map(Eventually),
         st.tuples(children, children).map(lambda t: Or(t[0], t[1])),
         st.tuples(children, children).map(lambda t: And(t[0], t[1])),
+        st.tuples(
+            st.from_regex(r"[a-z]{1,4}", fullmatch=True),
+            st.lists(st.integers(0, 5), min_size=1, max_size=4, unique=True),
+            children,
+        ).map(lambda t: Exists(t[0], tuple(t[1]), t[2])),
+        st.tuples(
+            st.from_regex(r"[a-z]{1,4}", fullmatch=True),
+            st.lists(st.integers(0, 5), min_size=1, max_size=4, unique=True),
+            children,
+        ).map(lambda t: Forall(t[0], tuple(t[1]), t[2])),
     ),
     max_leaves=10,
 )
