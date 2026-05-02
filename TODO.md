@@ -145,3 +145,56 @@
 - [ ] My agents don't automatically have history, you have to add it in PlusCal. If you don't,
     an agent can only distinguish states that differ in their assignments to the agent's local vars,
     but it should distinguish states that differ in the agent's overall history.
+
+- [ ] First-order quantification beyond literal sets
+  - Shipped: `\E i \in {1, 2}: K(i, received[i])` --- literal int domains, mechanical
+    desugaring to disjunction/conjunction.
+  - Tier 2: name resolution to a CONSTANT, e.g. `\E i \in Followers: K(i, received[i])`
+    where `Followers` is bound in the .cfg. Cheapest path: parse `.cfg` for
+    `CONSTANT name = value` lines, build a name → tuple environment the evaluator consults.
+    Operator definitions like `Agents == {0, 1}` are also rigid and finite but require
+    actually evaluating a TLA+ operator (not just reading the .cfg) --- punt to Tier 4
+    or hack via TLC.
+  - Tier 3 de-re: state-variable as domain, e.g. `\E i \in active_followers: phi(i)`.
+    Insight: `node_map[fp]["active_followers"]` is already in the JSON dump, so this is
+    a *lookup*, not an evaluation. Add a domain-name AST node that resolves either to a
+    constant (tier 2) or a state variable (tier 3) at eval time.
+  - Tier 4: TLA+ expressions in the domain slot, e.g. `\E i \in (active \ failed): ...`.
+    Now we need a small TLA+ expression evaluator over snapshotted state values
+    (set ops, function application, finite quantification). Bounded subset, ~200--400 LoC.
+  - Tier 5: arbitrary user-defined operators, recursion, ENABLED, action reasoning. This
+    is where re-implementing TLA+ in Python is silly.
+  - Tier 3 de-dicto: quantifier domain genuinely varies across an agent's accessible worlds.
+    This is full first-order modal --- inherits Reasoning About Knowledge §3.7 caveats
+    (rigid vs non-rigid designators, common-domain assumption). Don't attempt without
+    re-reading §3.7 carefully.
+
+- [ ] TLC-as-evaluator subprocess (only if Tier 5 ever bites)
+  - Java helper that holds one `tlc2.tool.impl.Tool` instance and exposes
+    `(expression, state) -> value` over stdin/RPC. Python keeps owning the analysis
+    layer; Java does only TLA+ expression eval.
+  - `Tool` is `abstract` and lives at `tlc2/tool/impl/Tool.java`; the public interface is
+    `tlc2/tool/ITool.java`. The relevant method is
+    `IValue eval(SemanticNode expr, Context c, TLCState s0)`. Mode = MC.
+  - Glue cost: (a) get a `SemanticNode` for a user expression --- SANY parses modules,
+    not free-floating expressions, so wrap queries as `Q1 == <expr1>`, `Q2 == <expr2>` in
+    a synthetic module that EXTENDS the user's spec; parse once, get M `OpDefNode`s.
+    (b) marshal a `TLCState` from JSON state values back to TLC's `IValue` types
+    (`BoolValue`, `IntValue`, `TupleValue`, `RecordValue`, `SetEnumValue`). (c) walk the
+    returned `IValue` back to JSON.
+  - Open question: `getState(long fp)` is *not* a fingerprint-keyed cache lookup.
+    Read Tool.java:3445--3525: for inits it recomputes all init states and filters by fp;
+    for non-inits it requires a predecessor and tries every action to find a successor
+    matching fp. Used internally for error-trace replay. So no fingerprint shortcut ---
+    we have to deserialize JSON-to-`TLCState`. The on-disk `states/` dir holds
+    `MSBDiskFPSet` (fingerprints only, for dedup) and `DiskStateQueue` (BFS frontier,
+    transient). Full state values do not survive the run on disk; the JSON dump from our
+    fork is the only persistent record.
+  - Alternative architecture worth considering: **inject queries during the model-checker
+    run.** Add queries as TLA+ operators in the spec (or via the `ALIAS` mechanism) and
+    have our forked `JsonStateWriter` dump derived values alongside raw state. Python
+    reads pre-evaluated values from JSON --- no Java-as-service at all, just one extra
+    TLC run when queries change. For our spec sizes (seconds), that's likely cheaper
+    than maintaining a long-lived Java subprocess. Need to look at how `ALIAS` /
+    `JsonStateWriter` handles per-state derived values to know if this is a small
+    fork change or a larger one.
