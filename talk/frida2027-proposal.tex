@@ -21,7 +21,7 @@ When it comes time to formally specify distributed protocols, however, we usuall
 We propose a prototype that adds epistemic operators to PlusCal specs and checks epistemic properties.
 Each PlusCal process is an agent, and its process-local variables are its local state.
 TLC (the standard TLA\textsuperscript{+} model-checker) explores the spec and dumps its state graph to disk. Our new analysis tool then computes which states are indistinguishable to each agent.
-It evalues epistemic formulae; for example, if a Raft leader is $L$, the set of followers is $F$, and the client's command is $\varphi$, then  ``the leader knows some follower knows the client's request'' is written $K_{L} S_{F} \varphi$.
+It evaluates epistemic formulae; for example, if a Raft leader is $L$, the set of followers is $F$, and the client's command is $\varphi$, then ``the leader knows some follower knows the client's request'' is written $K_{L} S_{F} \varphi$.
 Formulae live in spec comments, so existing tools are unaffected.
 Temporal operators ($\Box$, $\Diamond$, $\leadsto$) can be combined with epistemic ones, and the quantifiers $\exists$ and $\forall$ are supported over finite literal domains.
 
@@ -59,7 +59,7 @@ We have noticed two useful categories of temporal-epistemic properties:
 \item \textbf{Scale:} Our evaluation is a post-processing pass over the full state graph, so it scales only as far as TLC can enumerate and store states; the examples are small.
 \item \textbf{Theory:} We have not engaged deeply with the complexity results~\cite{bozzelli} or the symbolic techniques~\cite{lomuscio-penczek} for temporal-epistemic model checking.
 \item \textbf{History:} Agents currently see only their local variables, so history must be added to the spec by hand.
-\item \textbf{Quantifiers:} First-order quantification beyond finite literal domains is future research; evaluating a statement like ``$L$ knows there exists a follower $i$ in $F$ such that...' is complex if the set $F$ varies among states~\cite{fagin}.
+\item \textbf{Quantifiers:} First-order quantification beyond finite literal domains is future research; evaluating a statement like ``$L$ knows there exists a follower $i$ in $F$ such that...'' is complex if the set $F$ varies among states~\cite{fagin}.
 \end{itemize}
 
 \paragraph{Talk plan (30 minutes).}
